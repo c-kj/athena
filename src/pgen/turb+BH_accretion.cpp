@@ -31,6 +31,10 @@
 #include <omp.h>
 #endif
 
+// 声明自定义的全局变量，从 input file 中读取
+// 赋值在 Mesh::InitUserMeshData 中
+Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
+
 //========================================================================================
 //! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
 //  \brief
@@ -39,14 +43,6 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-
-  // 从 MeshBlock 中读取参数
-  Real GM = pmb->ruser_meshblock_data[0](0); 
-  Real R_in = pmb->ruser_meshblock_data[0](1);
-  Real R_out = pmb->ruser_meshblock_data[0](2);
-  Real rho_in_BH = pmb->ruser_meshblock_data[0](3);
-  Real rho_init = pmb->ruser_meshblock_data[0](4);
-  Real E_tot_init = pmb->ruser_meshblock_data[0](5);
 
   Real x,y,z,r,r3,vx,vy,vz; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -66,14 +62,14 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         // TODO 只对黑洞外的区域施加引力，这样处理正确吗？
         // TODO 这里需要 && r <= R_out 吗？
         if (r >= R_in ) {
-          cons(IM1,k,j,i) += - GM*x/r3 * rho * dt;
-          cons(IM2,k,j,i) += - GM*y/r3 * rho * dt;
-          cons(IM3,k,j,i) += - GM*z/r3 * rho * dt;
+          cons(IM1,k,j,i) += - GM_BH*x/r3 * rho * dt;
+          cons(IM2,k,j,i) += - GM_BH*y/r3 * rho * dt;
+          cons(IM3,k,j,i) += - GM_BH*z/r3 * rho * dt;
 
           // 能量的改变
           // ? 我看 Athena++ 的源代码都是判断了 if NON_BAROTROPIC_EOS，但这玩意默认是 True，不知道啥意思… 绝热方程是不是 barotropic？从模拟结果上来看好像不是
           if (NON_BAROTROPIC_EOS) {
-            cons(IEN,k,j,i) += - GM*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 这里可以稍微优化，快一点
+            cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 这里可以稍微优化，快一点
           }
 
         }
@@ -139,24 +135,23 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 #endif
   }
 
-  // TODO 
-EnrollUserExplicitSourceFunction(SMBH_grav);
+  // 从 input file 中读取参数，存到 pgen 文件的全局变量中
+  GM_BH = pin->GetReal("problem","GM_BH");
+  R_in = pin->GetReal("problem","R_in");
+  R_out = pin->GetReal("problem","R_out");
+  rho_in_BH = pin->GetReal("problem","rho_in_BH");
+  rho_init = pin->GetReal("problem","rho_init");
+  E_tot_init = pin->GetReal("problem", "E_tot_init");
+
+  // 将自定义的源项注册到 Athena++ 中
+  EnrollUserExplicitSourceFunction(SMBH_grav);
 
   return;
 }
 
 
-// MODIFIED 读取 input 参数
+// 这里可以设定属于每个 MeshBlock 的自定义数组数据。之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
-  // 从 input file 中读取，放到 MeshBlock 中的数组中，这样就可以传递给自定义的源项了
-  AllocateRealUserMeshBlockDataField(1);
-  ruser_meshblock_data[0].NewAthenaArray(10);
-  ruser_meshblock_data[0](0) = pin->GetReal("problem","GM_BH");
-  ruser_meshblock_data[0](1) = pin->GetReal("problem","R_in");
-  ruser_meshblock_data[0](2) = pin->GetReal("problem","R_out");
-  ruser_meshblock_data[0](3) = pin->GetReal("problem","rho_in_BH");
-  ruser_meshblock_data[0](4) = pin->GetReal("problem","rho_init");
-  ruser_meshblock_data[0](5) = pin->GetReal("problem", "E_tot_init");
   return;
 }
 
@@ -166,18 +161,19 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
 //  \brief
 //========================================================================================
 
+// MeshBlock::ProblemGenerator 用于设定初始条件（每个 MeshBlock 的）
+// defined in either the prob file or default_pgen.cpp in ../pgen/
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   for (int k=ks; k<=ke; k++) {
     for (int j=js; j<=je; j++) {
       for (int i=is; i<=ie; i++) {
-        phydro->u(IDN,k,j,i) = 1.0;
+        phydro->u(IDN,k,j,i) = rho_init;
 
         phydro->u(IM1,k,j,i) = 0.0;
         phydro->u(IM2,k,j,i) = 0.0;
         phydro->u(IM3,k,j,i) = 0.0;
 
         if (NON_BAROTROPIC_EOS) {
-          Real E_tot_init = pin->GetReal("problem", "E_tot_init");
           phydro->u(IEN,k,j,i) = E_tot_init;
         }
       }
