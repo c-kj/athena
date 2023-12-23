@@ -32,17 +32,51 @@
 #endif
 
 // 声明自定义的全局变量，从 input file 中读取
-// 赋值在 Mesh::InitUserMeshData 中
-Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
+// 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
+// 使用 namespace 创建一个匿名的命名空间。这会使得这些变量只能在本文件中使用，不会和其他文件中的同名变量冲突
+// 这样做的好处是，所有自定义的变量都放在一起，在大纲层级中更加清晰
+namespace {
+  Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
+  Real current_time, time_start_AMR;
+  int verbose;
 
-//========================================================================================
-//! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
-//  \brief
-//========================================================================================
+}
+
+
+//? 是否有必要把函数的声明和定义分开？声明放在前面，定义放在后面？
+// 测试能不能用 AMR 来充当 SMR，初始化湍流
+int RefinementCondition(MeshBlock *pmb) {
+  // 在 time_start_AMR 之前，都不进行 AMR，直接返回 0
+  if (current_time < time_start_AMR) return 0;
+
+  Real x,y,z,dx,dy,dz;
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    z = pmb->pcoord->x3v(k);
+    dz = pmb->pcoord->dx3f(k);
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      y = pmb->pcoord->x2v(j);
+      dy = pmb->pcoord->dx2f(j);
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        x = pmb->pcoord->x1v(i);
+        dx = pmb->pcoord->dx1f(i);
+
+        // 如果当前 MeshBlock 中有任何一个格点，其 xyz 坐标绝对值均小于其格子边长，则认定该 MeshBlock 紧贴坐标原点，需要细化
+        if (std::abs(x) < dx && std::abs(y) < dy && std::abs(z) < dz) return 1;
+      }
+    }
+  }
+  
+  return 0;
+}
+
+
+
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+
+  current_time = time;
 
   Real x,y,z,r,r3,vx,vy,vz; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -100,19 +134,34 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           cons(IEN,k,j,i) = E_tot_init;
         }
 
-
-        if ( std::isnan(cons(IDN,k,j,i)) ) {
-          printf("rho is nan at x,y,z,r = (%f, %f, %f, %f) \n", x, y, z, r);
+        // debug 信息：逐个格点检查 rho 是否为 nan
+        if (verbose >= 5) {
+          if ( std::isnan(cons(IDN,k,j,i)) ) {
+            printf("rho is nan at x,y,z,r = (%f, %f, %f, %f) \n", x, y, z, r);
+          }
         }
 
       }
     }
   }
-  // std::cout << "my print: time = " << time << std::endl; // 从 print 的结果看，似乎每个时间步会调用两次，一次在开始，一次在中间
+    if (verbose >= 2 && pmb->gid == 0 ) {
+      printf("source term at time = %f \n", time); // 从 print 的结果看，似乎每个时间步会调用两次，一次在开始，一次在中间
+    }
   return;
 }
 
 
+
+
+
+//========================================================================================
+// 以下是 Athena++ 提供的接口
+
+
+//========================================================================================
+//! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
+//  \brief
+//========================================================================================
 
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (SELF_GRAVITY_ENABLED) {
@@ -143,8 +192,16 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
+  time_start_AMR = pin->GetOrAddReal("problem", "time_start_AMR", 0.0);
+  verbose = pin->GetOrAddInteger("problem", "verbose", 0);
+
   // 将自定义的源项注册到 Athena++ 中
   EnrollUserExplicitSourceFunction(SMBH_grav);
+
+  // 将自定义的 AMR 条件注册到 Athena++ 中
+  if(adaptive){
+    EnrollUserRefinementCondition(RefinementCondition);
+  }
 
   return;
 }
@@ -188,4 +245,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 //========================================================================================
 
 void Mesh::UserWorkAfterLoop(ParameterInput *pin) {
+  // 这个函数用于在模拟结束后做一些事情
+  if (verbose >= 2) {
+    printf("Mesh::UserWorkAfterLoop is called \n");
+  }
 }
