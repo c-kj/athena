@@ -49,7 +49,12 @@
 // 这样做的好处是，所有自定义的变量都放在一起，在大纲层级中更加清晰
 namespace my_vars {
   Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
-  Real current_time, time_start_AMR;
+  // 自定义 AMR 机制所使用的变量
+  Real time_start_AMR;
+  int my_root_level;     // Mesh 的 root_level 是 private 的，所以需要自己定义一个变量来存储它
+  std::vector<std::array<Real, 3>> point_list;
+  std::vector<int> level_list;
+
   int verbose, debug;
   std::string debug_filepath, verbose_filepath;
   std::ofstream debug_stream;
@@ -83,6 +88,7 @@ namespace my_utils {
   // 自定义的用于将 debug 信息同时 print 和输出到文件的函数
   // 定义一个函数，它接收一个输出流、一个字符串前缀、一个格式化字符串和一些可变参数
   //! 注意！不知道这个函数如果用于 MPI 并行计算时，会不会出问题！可能会抢占式写入？？？最好是只用在本地 debug 时
+  //! 对于 MeshBlock 级别以上，OpenMP or MPI 时也是危险的，同时往一个流里面写入
   void printf_and_save_to_stream(std::ostream& stream, const char* format, ...) {
     va_list args;  // 定义一个 va_list 类型的变量，用于存储可变参数列表
     va_start(args, format); // 使用 va_start 函数初始化 args，使其包含从 format 之后的所有参数
@@ -131,37 +137,88 @@ namespace my_utils {
     }
   }
 
+  // 用于从 input file 中读取自定义的 AMR 参数，以 point_1 = 0, 1, 2.0 这种形式给出点的坐标
+  std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_and_levels(ParameterInput *pin) {
+    std::string block_name, point_name, level_name, num;
+    std::array<Real, 3> point;
+    std::vector<std::array<Real, 3>> point_list;
+    std::vector<int> level_list;
+    int level, default_level;
+
+    default_level = pin->GetInteger("mesh", "numlevel") - 1; // numlevel 是从 1 开始的，所以要减 1
+    block_name = "AMR/point";                    // 从 input file 中读取的 Block 的名字
+
+    for (int i = 1; true; i++) {                // 让 i 递增，直到找不到 point_i 为止
+      point_name = "point_" + std::to_string(i);
+      level_name = "level_" + std::to_string(i);
+      if (pin->DoesParameterExist(block_name, point_name)) {
+        std::stringstream ss(pin->GetString(block_name, point_name));
+        // 把逗号分隔的三个数字读入 point 数组
+        for (int j = 0; j < 3; j++) {
+          std::getline(ss, num, ',');
+          point[j] = std::stod(num);
+        }
+        level = pin->GetOrAddInteger(block_name, level_name, default_level);   // 把 level_i 读入 level
+        // 把 point 和 level 添加到 point_list 和 level_list 中
+        point_list.push_back(point);
+        level_list.push_back(level);
+
+      } else {
+        break;
+      }
+    }
+    return std::make_tuple(point_list, level_list);    // 返回一个 tuple
+  }
+
 }
 using namespace my_utils;
+
+
+// 通过判断 MeshBlock 是否包含指定的点，确定是否需要细化
+int RefinementCondition_Point(MeshBlock *pmb, std::array<Real, 3> point, int level_limit=100000) {
+  RegionSize size = pmb->block_size;
+  int current_level = pmb->loc.level - my_root_level;
+  if (current_level >= level_limit) return 0; // 如果当前 level 大于等于 level_limit，则不再细化
+
+  Real x1 = point[0], x2 = point[1], x3 = point[2];
+  if (size.x1min <= x1 && x1 <= size.x1max &&
+      size.x2min <= x2 && x2 <= size.x2max &&
+      size.x3min <= x3 && x3 <= size.x3max) {
+    return 1;
+  }
+  return 0;
+}
 
 
 //? 是否有必要把函数的声明和定义分开？声明放在前面，定义放在后面？
 // 测试能不能用 AMR 来充当 SMR，初始化湍流
 int RefinementCondition(MeshBlock *pmb) {
   // 在 time_start_AMR 之前，都不进行 AMR，直接返回 0
-  if (current_time < time_start_AMR) return 0;
+  Real time = pmb->pmy_mesh->time;
+  if (time < time_start_AMR) return 0;
 
-  Real x,y,z,dx,dy,dz;
-  for (int k = pmb->ks; k <= pmb->ke; ++k) {
-    z = pmb->pcoord->x3v(k);
-    dz = pmb->pcoord->dx3f(k);
-    for (int j = pmb->js; j <= pmb->je; ++j) {
-      y = pmb->pcoord->x2v(j);
-      dy = pmb->pcoord->dx2f(j);
-      for (int i = pmb->is; i <= pmb->ie; ++i) {
-        x = pmb->pcoord->x1v(i);
-        dx = pmb->pcoord->dx1f(i);
-
-        // 如果当前 MeshBlock 中有任何一个格点，其 xyz 坐标绝对值均小于其格子边长，则认定该 MeshBlock 紧贴坐标原点，需要细化
-        if (std::abs(x) < dx && std::abs(y) < dy && std::abs(z) < dz) return 1;
-      }
-    }
-  }
-  
+  // debug 消息，放在前面，免得还没输出就 return 了
   if (debug >= DEBUG_Mesh && pmb->gid == 0) {
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: RefinementCondition called at time = %f \n", current_time);
+    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: RefinementCondition is called at time = %f \n", time);
   }
 
+  if (debug >= DEBUG_MeshBlock && pmb->gid <= 10) {
+    printf_and_save_to_stream(debug_stream, "DEBUG_MeshBlock: time = %f \n", time);
+    auto block_size = pmb->block_size;
+    auto mesh_size = pmb->pmy_mesh->mesh_size;
+    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: size_ratio = %f, level = %d , 2^level = %f \n", 
+    (mesh_size.x1max - mesh_size.x1min)/(block_size.x1max-block_size.x1min), pmb->loc.level, pow(2, pmb->loc.level)
+    );
+
+  }
+
+  //* 这里涉及有些复杂的逻辑判断：每一个 condition 返回的是 -1,0,1 之一，如果有 -1 和 1 的冲突那么需要仔细考量优先级。
+  for (int i = 0; i < point_list.size(); i++) {
+    if (RefinementCondition_Point(pmb, point_list[i], level_list[i]) == 1) return 1; // 如果 MeshBlock 包含任何一个指定的点，则进行细化
+  }
+  // if (RefinementCondition_Point(pmb, {0,0,0}) != 0) return 1; // 如果包含原点，则进行细化
+  // 这里这么写是为了后续扩展
+  
   return 0;
 }
 
@@ -171,8 +228,6 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-
-  current_time = time;
 
   Real x,y,z,r,r3,vx,vy,vz; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -239,9 +294,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
     }
   }
   
+  // 根据 debug 信息，自定义源项在每个时间步会被 call 两次：一次是在时间步开始时，另一次在时间步的一半处。可能这就是 operator splitting？
   if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
-    printf("saving debug info to file %s \n", debug_filepath.c_str());
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: calling Source Term at time = %f \n", time);
+    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: Source Term is called at time = %f \n", time);
   }
 
   return;
@@ -255,6 +310,8 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 // 以下是 Athena++ 提供的接口
 //========================================================================================
 
+// 调用时机：程序启动时（包括 restart 时）
+// 函数用途：初始化 Mesh 上的全局变量（各个 MeshBlock 共享）；enroll 各种自定义函数
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (SELF_GRAVITY_ENABLED) {
     Real four_pi_G = pin->GetReal("problem","four_pi_G");
@@ -276,6 +333,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 #endif
   }
 
+  my_root_level = root_level;     // Mesh 的 root_level 是 private 的，所以需要自己定义一个变量来存储它
+
   // 从 input file 中读取参数，存到 pgen 文件的全局变量中
   GM_BH = pin->GetReal("problem","GM_BH");
   R_in = pin->GetReal("problem","R_in");
@@ -284,19 +343,26 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
-  time_start_AMR = pin->GetOrAddReal("problem", "time_start_AMR", 0.0);
+  // 读取自定义的 AMR 参数
+  if (adaptive) {
+    time_start_AMR = pin->GetOrAddReal("AMR", "time_start_AMR", 0.0);
+
+    std::tie(point_list, level_list) = get_AMR_points_and_levels(pin);  // 用 tie 函数将返回的 tuple 解包
+  }
 
   // <debug> 里的参数
   // verbose = pin->GetOrAddInteger("debug", "verbose", 0);
   // verbose_filepath = pin->GetOrAddString("debug", "verbose_filepath", "info/verbose_info.txt");
   debug = pin->GetOrAddInteger("debug", "debug", 0);
-  if (debug >= DEBUG_NONE) {
+  if (debug > DEBUG_NONE) {
     debug_filepath = pin->GetOrAddString("debug", "debug_filepath", "info/debug_info.txt");
     ensure_parent_directory_exists(debug_filepath);
     debug_stream.open(debug_filepath, std::ios::app); // 用于输出 debug 信息的文件流
+    printf("DEBUG: saving debug info to file %s \n", debug_filepath.c_str());
   }
 
   // 将自定义的源项注册到 Athena++ 中
+  // 调用时机：在每个时间步中调用两次，一次在开头，一次在中间
   EnrollUserExplicitSourceFunction(SMBH_grav);
 
   // 将自定义的 AMR 条件注册到 Athena++ 中
@@ -307,16 +373,16 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   return;
 }
 
-
-// 这里可以设定属于每个 MeshBlock 的自定义数组数据。之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
+// 调用时机：程序启动时（包括 restart 时）
+// 函数用途：初始化每个 MeshBlock 上的局部变量（包括数组数据）
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
+  // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
   return;
 }
 
 
-
-// MeshBlock::ProblemGenerator 用于设定初始条件（每个 MeshBlock 的）
-// defined in either the prob file or default_pgen.cpp in ../pgen/
+// 调用时机：程序启动时（应该不包括 restart 时？）
+// 函数用途：设定初始条件（每个 MeshBlock 的）
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   for (int k=ks; k<=ke; k++) {
     for (int j=js; j<=je; j++) {
@@ -336,6 +402,35 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 }
 
 
+// 调用时机：在每个时间步的结尾。每个 MeshBlock 调用一次
+// 函数用途：仅用于分析，不用于操作数据
+void MeshBlock::UserWorkInLoop() {
+  return;
+}
+
+
+// 调用时机：在每个时间步的结尾。每个节点调用一次
+// 函数用途：可用于从 MeshBlocks 收集结果；使用 MPI all-to-all 通信
+void Mesh::UserWorkInLoop() {
+  // 在时间步内调用 Mesh::UserWorkInLoop 时，步长内主要的演化已经完成，但 time 还未更新。
+  // 所以「时间步结尾的时间」要加上 dt
+  Real end_time = time + dt; 
+  if (debug >= DEBUG_TimeStep) {
+    printf_and_save_to_stream(debug_stream, "DEBUG_TimeStep: Mesh::UserWorkInLoop is called at end_time = %f \n", end_time);
+  }
+  return;
+}
+
+
+// 调用时机：每个将要输出 output 的时间步的末尾。和 Mesh::UserWorkInLoop 谁先？
+// 函数用途：计算用户定义的输出变量
+void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
+  return;
+}
+
+
+// 调用时机：模拟结束时
+// 函数用途：清理 MeshBlock::InitUserMeshData 分配的资源
 void Mesh::UserWorkAfterLoop(ParameterInput *pin) {
   // 这个函数用于在模拟结束后做一些事情
   // TODO
