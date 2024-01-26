@@ -59,6 +59,12 @@ namespace my_vars {
   std::string debug_filepath, verbose_filepath;
   std::ofstream debug_stream;
 
+  std::string init_cond_type;
+  Real rho_at_boundary, E_tot_at_boundary, power_law_index, alpha;
+  Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
+    return pow(1 + alpha * R_Bondi / r, 1.5);
+  }
+
   // 通过枚举类型来定义 verbose 的级别，这样做比用数字更加清晰
   // 为抑制信息，正值为 debug 信息，0 为正常运行时下应该输出的信息
   enum VerboseLevel
@@ -202,16 +208,6 @@ int RefinementCondition(MeshBlock *pmb) {
     printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: RefinementCondition is called at time = %f \n", time);
   }
 
-  if (debug >= DEBUG_MeshBlock && pmb->gid <= 10) {
-    printf_and_save_to_stream(debug_stream, "DEBUG_MeshBlock: time = %f \n", time);
-    auto block_size = pmb->block_size;
-    auto mesh_size = pmb->pmy_mesh->mesh_size;
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: size_ratio = %f, level = %d , 2^level = %f \n", 
-    (mesh_size.x1max - mesh_size.x1min)/(block_size.x1max-block_size.x1min), pmb->loc.level, pow(2, pmb->loc.level)
-    );
-
-  }
-
   //* 这里涉及有些复杂的逻辑判断：每一个 condition 返回的是 -1,0,1 之一，如果有 -1 和 1 的冲突那么需要仔细考量优先级。
   for (int i = 0; i < point_list.size(); i++) {
     if (RefinementCondition_Point(pmb, point_list[i], level_list[i]) == 1) return 1; // 如果 MeshBlock 包含任何一个指定的点，则进行细化
@@ -351,8 +347,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   }
 
   // <debug> 里的参数
-  // verbose = pin->GetOrAddInteger("debug", "verbose", 0);
-  // verbose_filepath = pin->GetOrAddString("debug", "verbose_filepath", "info/verbose_info.txt");
   debug = pin->GetOrAddInteger("debug", "debug", 0);
   if (debug > DEBUG_NONE) {
     debug_filepath = pin->GetOrAddString("debug", "debug_filepath", "info/debug_info.txt");
@@ -384,21 +378,84 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
 // 调用时机：程序启动时（应该不包括 restart 时？）
 // 函数用途：设定初始条件（每个 MeshBlock 的）
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  for (int k=ks; k<=ke; k++) {
-    for (int j=js; j<=je; j++) {
-      for (int i=is; i<=ie; i++) {
-        phydro->u(IDN,k,j,i) = rho_init;
+  init_cond_type = pin->GetOrAddString("initial_condition","init_cond_type","uniform");
+  power_law_index = pin->GetOrAddReal("initial_condition","power_law_index",0.0);   // 一般情况下是负数
+  alpha = pin->GetOrAddReal("initial_condition","alpha",0.3333333);
 
-        phydro->u(IM1,k,j,i) = 0.0;
-        phydro->u(IM2,k,j,i) = 0.0;
-        phydro->u(IM3,k,j,i) = 0.0;
+  if (init_cond_type == "uniform") {
+    for (int k=ks; k<=ke; k++) {
+      for (int j=js; j<=je; j++) {
+        for (int i=is; i<=ie; i++) {
+          phydro->u(IDN,k,j,i) = rho_init;
 
-        if (NON_BAROTROPIC_EOS) {
-          phydro->u(IEN,k,j,i) = E_tot_init;
+          phydro->u(IM1,k,j,i) = 0.0;
+          phydro->u(IM2,k,j,i) = 0.0;
+          phydro->u(IM3,k,j,i) = 0.0;
+
+          if (NON_BAROTROPIC_EOS) {
+            phydro->u(IEN,k,j,i) = E_tot_init;
+          }
         }
       }
     }
   }
+
+  // 幂律初值，密度和能量遵循相同的幂律，初速度为 0。初始声速为 gamma*(gamma-1)*E_tot/rho
+  if (init_cond_type == "power_law") {
+    Real x1,x2,x3,r;
+    for (int k=ks; k<=ke; k++) {
+      x3 = pcoord->x3v(k);
+      for (int j=js; j<=je; j++) {
+        x2 = pcoord->x2v(j);
+        for (int i=is; i<=ie; i++) {
+          x1 = pcoord->x1v(i);
+          r = sqrt(x1*x1 + x2*x2 + x3*x3);
+          phydro->u(IDN,k,j,i) = rho_init * pow(r/R_out, power_law_index);
+
+          phydro->u(IM1,k,j,i) = 0.0;
+          phydro->u(IM2,k,j,i) = 0.0;
+          phydro->u(IM3,k,j,i) = 0.0;
+
+          if (NON_BAROTROPIC_EOS) {
+            phydro->u(IEN,k,j,i) = E_tot_init * pow(r/R_out, power_law_index);
+          }
+        }
+      }
+    }
+  }
+
+  // approximate_Bondi: 初速度 = 0，密度和能量遵循 Bondi profile 的近似解
+  if (init_cond_type == "approximate_Bondi") {
+    Real gamma = peos->GetGamma();
+    Real R_Bondi = 2 * GM_BH / (gamma*(gamma-1)*E_tot_init/rho_init);
+    //TODO 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改
+    Real rho_at_boundary = rho_init;
+    Real E_tot_at_boundary = E_tot_init;  
+    Real rho_inf = rho_at_boundary / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
+
+
+    Real x1,x2,x3,r;
+    for (int k=ks; k<=ke; k++) {
+      x3 = pcoord->x3v(k);
+      for (int j=js; j<=je; j++) {
+        x2 = pcoord->x2v(j);
+        for (int i=is; i<=ie; i++) {
+          x1 = pcoord->x1v(i);
+          r = sqrt(x1*x1 + x2*x2 + x3*x3);
+          phydro->u(IDN,k,j,i) = rho_inf * approx_Bondi_rho_profile(alpha, R_Bondi, r);
+
+          phydro->u(IM1,k,j,i) = 0.0;
+          phydro->u(IM2,k,j,i) = 0.0;
+          phydro->u(IM3,k,j,i) = 0.0;
+
+          if (NON_BAROTROPIC_EOS) {
+            phydro->u(IEN,k,j,i) = E_tot_at_boundary * pow(phydro->u(IDN,k,j,i) / rho_at_boundary, gamma) ;
+          }
+        }
+      }
+    }
+  }
+
 }
 
 
