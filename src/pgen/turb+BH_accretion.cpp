@@ -120,7 +120,7 @@ namespace my_utils {
   }
 
 
-  // 检查并创建目录的函数
+  // 用于检查并创建目录的函数
   void check_and_create_directory(const std::string& path) {
     struct stat info;  // 存储文件或目录的信息
     if (stat(path.c_str(), &info) != 0) {
@@ -212,7 +212,6 @@ int RefinementCondition(MeshBlock *pmb) {
   for (int i = 0; i < point_list.size(); i++) {
     if (RefinementCondition_Point(pmb, point_list[i], level_list[i]) == 1) return 1; // 如果 MeshBlock 包含任何一个指定的点，则进行细化
   }
-  // if (RefinementCondition_Point(pmb, {0,0,0}) != 0) return 1; // 如果包含原点，则进行细化
   // 这里这么写是为了后续扩展
   
   return 0;
@@ -225,7 +224,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
 
-  Real x,y,z,r,r3,vx,vy,vz; 
+  Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
@@ -235,46 +234,44 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         r = sqrt(x*x + y*y + z*z);
         r3 = r*r*r;
         
+        rho = prim(IDN,k,j,i); 
         vx = prim(IVX,k,j,i);
         vy = prim(IVY,k,j,i);
         vz = prim(IVZ,k,j,i);
-        Real& rho = cons(IDN,k,j,i); // rho 是引用，修改 rho 会修改 cons(IDN,k,j,i) 的值
 
-        // TODO 只对黑洞外的区域施加引力，这样处理正确吗？
-        // TODO 这里需要 && r <= R_out 吗？
+        //? 只对黑洞外的区域施加引力，这样处理正确吗？不过在这里对 R_in 以内施加引力没用，接下来会被重设
+        //? 这里需要 && r <= R_out 吗？
         if (r >= R_in ) {
           cons(IM1,k,j,i) += - GM_BH*x/r3 * rho * dt;
           cons(IM2,k,j,i) += - GM_BH*y/r3 * rho * dt;
           cons(IM3,k,j,i) += - GM_BH*z/r3 * rho * dt;
 
-          // 能量的改变
-          // ? 我看 Athena++ 的源代码都是判断了 if NON_BAROTROPIC_EOS，但这玩意默认是 True，不知道啥意思… 绝热方程是不是 barotropic？从模拟结果上来看好像不是
+          // 能量的改变：非全局正压时需要更新能量密度
           if (NON_BAROTROPIC_EOS) {
-            cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 这里可以稍微优化，快一点
+            // 这里可以稍微优化，快一点
+            cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
           }
 
         }
 
         // 进入黑洞的处理
+        //? 这里的处理方式合适吗？动量为 0 应该没错，能量（压强）应该是个小值还是 0 ？
         if (r < R_in) {
-          // rho = std::min(rho_floor, rho); // 进入黑洞后，密度取 min(rho_floor, rho) // TODO 这个正确吗？有必要吗？可能自带约束？
-          rho = rho_in_BH;
-
-          // TODO 修改动量使其不外流。这样做正确吗？
+          cons(IDN,k,j,i) = std::min(rho_in_BH, rho);
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
-
           // 修改能量
-          cons(IEN,k,j,i) = 0.0 + 0.0; // TODO 应该怎么修改能量？尤其是内能怎么计算？ shocks?
-
+          if (NON_BAROTROPIC_EOS) {
+            cons(IEN,k,j,i) = 0.0 + 0.0; 
+          }
         }
 
-        // TODO 外部区域的处理，应该怎么做？
-        // 目前是设定为保持初始值
+        //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
         // TODO 或许可以改为继承该格子之前的值？但怎么操作呢？在 source term 里面不知道能不能做这件事
+        // 应该可以把 ProblemGenerator 里的函数抽象出来，然后在这里调用
         if (r > R_out) {
-          rho = rho_init;
+          cons(IDN,k,j,i) = rho_init;
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
