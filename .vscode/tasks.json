@@ -1,0 +1,49 @@
+{
+    "tasks": [
+        // {
+        //     "type": "cppbuild",
+        //     "label": "Athena++ 编译（homebrew clang++）",
+        //     "command": "/opt/homebrew/opt/llvm/bin/clang++",
+        //     "args": [
+        //         "-fcolor-diagnostics",
+        //         "-fansi-escape-codes",
+        //         "-I/opt/homebrew/opt/fftw/include",
+        //         "-I/opt/homebrew/opt/hdf5/include",
+        //         // "-O3",
+        //         "-std=c++11",
+        //         "-c",
+        //         "${file}",
+        //         "-o",
+        //         "${workspaceFolder}/obj/${fileBasenameNoExtension}.o"
+        //     ],
+        //     "options": {
+        //         "cwd": "${fileDirname}"
+        //     },
+        //     "problemMatcher": [
+        //         "$gcc"
+        //     ],
+        //     "group": {
+        //         "kind": "build",
+        //         "isDefault": true
+        //     },
+        //     "detail": "调试器生成的任务。"
+        // },
+        {
+            "type": "shell",
+            "label": "make clean and build",
+            "command": "make clean && make -j 6",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true,
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "version": "2.0.0"
+    
+}
+

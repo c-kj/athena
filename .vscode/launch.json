@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Athena++ 调试",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/bin/athena",
+            "args": ["-d", "output", "-i", "test_SN.athinput"],
+            "stopAtEntry": false,
+            // "cwd": "${fileDirname}",
+            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            // "preLaunchTask": "make clean and build",
+
+            // 待研究，不太清楚具体有啥用。这是 copilot 给我写的
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+        }
+    ],
+    "version": "2.0.0"
+}
