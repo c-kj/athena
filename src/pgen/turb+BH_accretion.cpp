@@ -35,194 +35,46 @@
 // 自定义的变量、函数等
 //========================================================================================
 
-// 自定义的头文件导入
+// 自定义函数所需的标准库导入
 #include <fstream>  // std::ofstream
-#include <iostream> // std::cout, std::endl
-#include <cstdarg>  // va_list, va_start, va_end, vsprintf 等用于处理变长参数列表
-#include <sys/stat.h>  // 为了使用 stat 和 mkdir 函数
 // #include <string>  // 这里无需 include，因为在 parameter_input.hpp 中已经 include 了
 
+// 自定义的头文件
+#include "turb+BH_accretion.hpp"
+#include "ckj_code/utils.hpp"
+#include "ckj_code/region.hpp"
+#include "ckj_code/refinement_condition.hpp"
 
-// 声明自定义的全局变量，从 input file 中读取
-// 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
-// 使用 namespace 创建一个命名空间 my_vars，然后再 using namespace 导入它
-// 这样做的好处是，所有自定义的变量都放在一起，在大纲层级中更加清晰
-namespace my_vars {
-  Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
-  // 自定义 AMR 机制所使用的变量
-  Real time_start_AMR;
-  int my_root_level;     // Mesh 的 root_level 是 private 的，所以需要自己定义一个变量来存储它
-  std::vector<std::array<Real, 3>> point_list;
-  std::vector<int> level_list;
 
-  int verbose, debug;
-  std::string debug_filepath, verbose_filepath;
-  std::ofstream debug_stream;
-
-  std::string init_cond_type;
-  Real rho_at_boundary, E_tot_at_boundary, power_law_index, alpha;
-  Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
-    return pow(1 + alpha * R_Bondi / r, 1.5);
-  }
-
-  // 通过枚举类型来定义 verbose 的级别，这样做比用数字更加清晰
-  // 为抑制信息，正值为 debug 信息，0 为正常运行时下应该输出的信息
-  enum VerboseLevel
-  {
-    //? 目前还没想好 verbose 应该用来输出什么信息
-    // 基准是 0 （verbose 的默认值），也就是正常运行时输出：ERROR 和 WARNING
-    VERBOSE_NONE = -100,   // 抑制
-    VERBOSE_ERROR = -50,   // 遇到严重错误时
-    VERBOSE_WARNING = -10, // 可能导致错误的情况，需要检查
-    VERBOSE_INFO = 10,     // 一般信息
-  };
-  enum DebugLevel
-  {
-    DEBUG_NONE = 0,       // 不输出 debug 信息
-    DEBUG_Main = 20,      // 整个主程序的步骤，不包括主循环中的每个时间步
-    DEBUG_TimeStep = 30,  // 主循环中每个时间步的信息
-    DEBUG_Mesh = 50,      // 调用 Mesh 时相关的信息
-    DEBUG_MeshBlock = 60, // 遍历 MeshBlock 相关的信息
-    DEBUG_Cell = 80,      // 遍历每个格子相关的信息
-    DEBUG_ALL = 100       // 详尽的所有信息
-  };
+Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
+  return pow(1 + alpha * R_Bondi / r, 1.5);
 }
-using namespace my_vars;
-
-// 自定义的工具函数
-namespace my_utils {
-  // 自定义的用于将 debug 信息同时 print 和输出到文件的函数
-  // 定义一个函数，它接收一个输出流、一个字符串前缀、一个格式化字符串和一些可变参数
-  //! 注意！不知道这个函数如果用于 MPI 并行计算时，会不会出问题！可能会抢占式写入？？？最好是只用在本地 debug 时
-  //! 对于 MeshBlock 级别以上，OpenMP or MPI 时也是危险的，同时往一个流里面写入
-  void printf_and_save_to_stream(std::ostream& stream, const char* format, ...) {
-    va_list args;  // 定义一个 va_list 类型的变量，用于存储可变参数列表
-    va_start(args, format); // 使用 va_start 函数初始化 args，使其包含从 format 之后的所有参数
-
-    char buffer[256];  // 定义一个字符数组，用于存储格式化后的字符串
-
-    // 使用 vsnprintf 函数将格式化的字符串写入 buffer，vsnprintf 函数会根据 format 和 args 生成一个字符串，并确保不会超过 buffer 的大小
-    vsnprintf(buffer, sizeof(buffer), format, args); 
-
-    printf("%s", buffer);   // 使用 printf 函数将 buffer 输出到屏幕
-
-    // 检查 stream 是否有效
-    if (stream) {
-      // 如果 stream 有效，将 output 输出到 stream
-      stream << buffer; 
-    } else {
-      // 如果 stream 无效，输出一条错误消息
-      printf("stream is not open !!!!! \n");
-    }
-
-    // 使用 va_end 函数结束可变参数列表
-    va_end(args); 
-  }
-
-
-  // 用于检查并创建目录的函数
-  void check_and_create_directory(const std::string& path) {
-    struct stat info;  // 存储文件或目录的信息
-    if (stat(path.c_str(), &info) != 0) {
-      mkdir(path.c_str(), 0755);  // 如果路径不存在，创建它
-    } else if (!(info.st_mode & S_IFDIR)) {
-      throw std::runtime_error(path + " exists but is not a directory");  // 如果路径存在，但不是一个目录，抛出错误
-    }
-  }
-
-  // 检查一个路径的父目录是否存在，如果不存在则创建它。
-  // 会创建 path 中最后一个 / 之前的全部路径，因此结尾是否有 / 是不同的
-  void ensure_parent_directory_exists(const std::string& path) {
-    std::string partial_path;  // 存储路径的部分内容
-
-    for (char c : path) {
-      partial_path += c;  // 将当前字符添加到部分路径中
-      if (c == '/') {
-        check_and_create_directory(partial_path);  // 检查并创建部分路径
-      }
-    }
-  }
-
-  // 用于从 input file 中读取自定义的 AMR 参数，以 point_1 = 0, 1, 2.0 这种形式给出点的坐标
-  std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_and_levels(ParameterInput *pin) {
-    std::string block_name, point_name, level_name, num;
-    std::array<Real, 3> point;
-    std::vector<std::array<Real, 3>> point_list;
-    std::vector<int> level_list;
-    int level, default_level;
-
-    default_level = pin->GetInteger("mesh", "numlevel") - 1; // numlevel 是从 1 开始的，所以要减 1
-    block_name = "AMR/point";                    // 从 input file 中读取的 Block 的名字
-
-    for (int i = 1; true; i++) {                // 让 i 递增，直到找不到 point_i 为止
-      point_name = "point_" + std::to_string(i);
-      level_name = "level_" + std::to_string(i);
-      if (pin->DoesParameterExist(block_name, point_name)) {
-        std::stringstream ss(pin->GetString(block_name, point_name));
-        // 把逗号分隔的三个数字读入 point 数组
-        for (int j = 0; j < 3; j++) {
-          std::getline(ss, num, ',');
-          point[j] = std::stod(num);
-        }
-        level = pin->GetOrAddInteger(block_name, level_name, default_level);   // 把 level_i 读入 level
-        // 把 point 和 level 添加到 point_list 和 level_list 中
-        point_list.push_back(point);
-        level_list.push_back(level);
-
-      } else {
-        break;
-      }
-    }
-    return std::make_tuple(point_list, level_list);    // 返回一个 tuple
-  }
-
-}
-using namespace my_utils;
-
-
-// 通过判断 MeshBlock 是否包含指定的点，确定是否需要细化
-int RefinementCondition_Point(MeshBlock *pmb, std::array<Real, 3> point, int level_limit=100000) {
-  RegionSize size = pmb->block_size;
-  int current_level = pmb->loc.level - my_root_level;
-  if (current_level >= level_limit) return 0; // 如果当前 level 大于等于 level_limit，则不再细化
-
-  Real x1 = point[0], x2 = point[1], x3 = point[2];
-  if (size.x1min <= x1 && x1 <= size.x1max &&
-      size.x2min <= x2 && x2 <= size.x2max &&
-      size.x3min <= x3 && x3 <= size.x3max) {
-    return 1;
-  }
-  return 0;
-}
-
-
-//? 是否有必要把函数的声明和定义分开？声明放在前面，定义放在后面？
-// 测试能不能用 AMR 来充当 SMR，初始化湍流
-int RefinementCondition(MeshBlock *pmb) {
-  // 在 time_start_AMR 之前，都不进行 AMR，直接返回 0
-  Real time = pmb->pmy_mesh->time;
-  if (time < time_start_AMR) return 0;
-
-  // debug 消息，放在前面，免得还没输出就 return 了
-  if (debug >= DEBUG_Mesh && pmb->gid == 0) {
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: RefinementCondition is called at time = %f \n", time);
-  }
-
-  //* 这里涉及有些复杂的逻辑判断：每一个 condition 返回的是 -1,0,1 之一，如果有 -1 和 1 的冲突那么需要仔细考量优先级。
-  for (int i = 0; i < point_list.size(); i++) {
-    if (RefinementCondition_Point(pmb, point_list[i], level_list[i]) == 1) return 1; // 如果 MeshBlock 包含任何一个指定的点，则进行细化
-  }
-  // 这里这么写是为了后续扩展
-  
-  return 0;
-}
-
 
 
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+
+  const Real& mesh_time = pmb->pmy_mesh->time;
+  const Real& mesh_dt = pmb->pmy_mesh->dt;
+  const Real dt_ratio = dt/mesh_dt;
+
+  //TEMP SN 的体积计算
+  Real SN_volume;
+  if (SN_type == "ball") {
+    if (pmb->pmy_mesh->f3) {
+      SN_volume = 4.0/3.0 * PI * CUBE(SN_radius);
+    } else if (pmb->pmy_mesh->f2) {
+      SN_volume = PI * SQR(SN_radius);
+    } else  {
+      SN_volume = 2 * SN_radius;
+    }
+  } else if (SN_type == "heart") { // TEMP 这里的体积计算取 a b 为默认值。
+    Real a = 3.3;
+    Real b = 0.75;
+    SN_volume = PI*a*b * SQR(SN_radius);
+  }
 
   Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -251,7 +103,19 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             // 这里可以稍微优化，快一点
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
           }
-
+          //TEMP 尝试 SN 爆炸！
+          //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
+          if (SN_flag > 0) {
+            if (mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
+              if (
+                (SN_type == "ball" && r <= SN_radius) || 
+                (SN_type == "heart" && in_heart(3.3, 0.75, x/SN_radius, y/SN_radius, z))
+                ) {
+                cons(IDN,k,j,i) += SN_mass / SN_volume * dt_ratio;
+                cons(IEN,k,j,i) += SN_energy / SN_volume * dt_ratio;
+              }
+            }
+          }
         }
 
         // 进入黑洞的处理
@@ -287,17 +151,20 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
     }
   }
   
-  // 根据 debug 信息，自定义源项在每个时间步会被 call 两次：一次是在时间步开始时，另一次在时间步的一半处。可能这就是 operator splitting？
+  // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
+  //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
+  // 对于那些 *dt 的增量更新操作不必考虑，但对于直接附加的量（SN 爆炸能量），需要专门处理。
   if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: Source Term is called at time = %f \n", time);
+    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
   }
+  if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
+    if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
+      printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+    }
+  } 
 
   return;
 }
-
-
-
-
 
 //========================================================================================
 // 以下是 Athena++ 提供的接口
@@ -326,7 +193,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 #endif
   }
 
-  my_root_level = root_level;     // Mesh 的 root_level 是 private 的，所以需要自己定义一个变量来存储它
 
   // 从 input file 中读取参数，存到 pgen 文件的全局变量中
   GM_BH = pin->GetReal("problem","GM_BH");
@@ -336,11 +202,24 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
+  // TEMP
+  SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);
+  if (SN_flag > 0) {
+    if ( !NON_BAROTROPIC_EOS ) {
+      throw std::runtime_error("SN explosion is not implemented for barotropic EOS!"); 
+    }
+    SN_type = pin->GetOrAddString("supernova","SN_type","ball");
+    SN_time = pin->GetReal("supernova","time_1");
+    SN_energy = pin->GetReal("supernova","energy_1");
+    SN_radius = pin->GetReal("supernova","radius_1");
+    SN_mass = pin->GetReal("supernova","mass_1");
+  }
+
+
   // 读取自定义的 AMR 参数
   if (adaptive) {
-    time_start_AMR = pin->GetOrAddReal("AMR", "time_start_AMR", 0.0);
-
-    std::tie(point_list, level_list) = get_AMR_points_and_levels(pin);  // 用 tie 函数将返回的 tuple 解包
+    SetRootLevel(root_level);
+    InitRefinementCondition(pin);
   }
 
   // <debug> 里的参数
@@ -452,6 +331,41 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   }
+
+  //TEMP heart 的初始条件，等写好了 region 类之后整理
+  if (init_cond_type == "heart") {
+    std::string block = "initial_condition/heart";
+    Real a = pin->GetOrAddReal(block, "a", 3.3);
+    Real b = pin->GetOrAddReal(block,"b", 0.75);
+    Real heart_size = pin->GetOrAddReal(block,"heart_size", 1.0);
+    Real rho_inside = pin->GetReal(block,"rho_inside");
+    Real E_tot_inside = pin->GetReal(block,"E_tot_inside");
+
+    Real x,y,z;
+    for (int k=ks; k<=ke; k++) {
+      for (int j=js; j<=je; j++) {
+        for (int i=is; i<=ie; i++) {
+          z = pcoord->x3v(k);
+          y = pcoord->x2v(j);
+          x = pcoord->x1v(i);
+
+          if ( in_heart(a, b, x/heart_size, y/heart_size, z) ) {
+            phydro->u(IDN,k,j,i) = rho_inside;
+            phydro->u(IEN,k,j,i) = E_tot_inside;
+          } else {
+            phydro->u(IDN,k,j,i) = rho_init;
+            phydro->u(IEN,k,j,i) = E_tot_init;
+          }
+
+          phydro->u(IM1,k,j,i) = 0.0;
+          phydro->u(IM2,k,j,i) = 0.0;
+          phydro->u(IM3,k,j,i) = 0.0;
+
+
+        }
+      }
+    }
+  };
 
 }
 

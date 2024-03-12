@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "Athena++",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/homebrew/opt/fftw/include",
+                "/opt/homebrew/opt/hdf5/include"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "macos-clang-arm64",
+            "compilerPath": "/opt/homebrew/opt/llvm/bin/clang++",
+            "compilerArgs": [
+                "-O3"
+            ]
+        }
+    ],
+    "version": 4
+}

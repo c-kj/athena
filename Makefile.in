@@ -70,6 +70,7 @@ SRC_FILES := $(wildcard src/*.cpp) \
 	     $(wildcard src/outputs/*.cpp) \
 	     src/pgen/default_pgen.cpp \
 	     src/pgen/$(PROBLEM_FILE) \
+	     $(wildcard src/pgen/ckj_code/*.cpp) \
 	     $(wildcard src/reconstruct/*.cpp) \
 	     $(wildcard src/scalars/*.cpp) \
 	     $(wildcard src/task_list/*.cpp) \
