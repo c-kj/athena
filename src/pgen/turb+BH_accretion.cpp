@@ -36,7 +36,7 @@
 //========================================================================================
 
 // 自定义函数所需的标准库导入
-#include <fstream>  // std::ofstream
+// #include <fstream>  // std::ofstream
 // #include <string>  // 这里无需 include，因为在 parameter_input.hpp 中已经 include 了
 
 // 自定义的头文件
@@ -44,6 +44,7 @@
 #include "ckj_code/utils.hpp"
 #include "ckj_code/region.hpp"
 #include "ckj_code/refinement_condition.hpp"
+#include "ckj_code/supernova.hpp"
 
 
 Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
@@ -60,20 +61,16 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   const Real& mesh_dt = pmb->pmy_mesh->dt;
   const Real dt_ratio = dt/mesh_dt;
 
-  //TEMP SN 的体积计算
-  Real SN_volume;
-  if (SN_type == "ball") {
-    if (pmb->pmy_mesh->f3) {
-      SN_volume = 4.0/3.0 * PI * CUBE(SN_radius);
-    } else if (pmb->pmy_mesh->f2) {
-      SN_volume = PI * SQR(SN_radius);
-    } else  {
-      SN_volume = 2 * SN_radius;
+  if (SN_flag > 0 && dt == mesh_dt ) { //* 目前设定只有 VL2 的校正步才找出需要注入的超新星
+    // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
+    supernova_to_inject = {}; // 每次都要先清空
+    for (SuperNova& SN : supernova_list) {
+      for (Real& SN_time : SN.time_list) {
+        if (mesh_time <= SN_time && SN_time < mesh_time + mesh_dt) {
+          supernova_to_inject.push_back(&SN); // &SN 解引用，取 SN 的地址，也就是一个指向 SN 的指针
+        }
+      }
     }
-  } else if (SN_type == "heart") { // TEMP 这里的体积计算取 a b 为默认值。
-    Real a = 3.3;
-    Real b = 0.75;
-    SN_volume = PI*a*b * SQR(SN_radius);
   }
 
   Real x,y,z,r,r3,vx,vy,vz,rho; 
@@ -103,19 +100,24 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             // 这里可以稍微优化，快一点
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
           }
-          //TEMP 尝试 SN 爆炸！
-          //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
-          if (SN_flag > 0) {
-            if (mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-              if (
-                (SN_type == "ball" && r <= SN_radius) || 
-                (SN_type == "heart" && in_heart(3.3, 0.75, x/SN_radius, y/SN_radius, z))
-                ) {
-                cons(IDN,k,j,i) += SN_mass / SN_volume * dt_ratio;
-                cons(IEN,k,j,i) += SN_energy / SN_volume * dt_ratio;
+          // 超新星爆炸的能量和质量注入
+          if (SN_flag > 0 && dt == mesh_dt) {  //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
+            for (SuperNova* SN : supernova_to_inject) {
+              if ( SN->energy_region->contains({x,y,z}) ) {
+                cons(IEN,k,j,i) += SN->energy_density * dt_ratio;
               }
+              if ( SN->mass_region->contains({x,y,z}) ) {
+                cons(IDN,k,j,i) += SN->mass_density * dt_ratio;
+              }
+              // 这里的 debug 信息不再那么有用，将来可以考虑删去
+              // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
+              //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
+              //     printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+              //   }
+              // } 
             }
           }
+
         }
 
         // 进入黑洞的处理
@@ -157,11 +159,6 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
     printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
   }
-  if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
-    if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-      printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-    }
-  } 
 
   return;
 }
@@ -202,19 +199,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
-  // TEMP
+  // 读取超新星的参数
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);
   if (SN_flag > 0) {
     if ( !NON_BAROTROPIC_EOS ) {
       throw std::runtime_error("SN explosion is not implemented for barotropic EOS!"); 
     }
-    SN_type = pin->GetOrAddString("supernova","SN_type","ball");
-    SN_time = pin->GetReal("supernova","time_1");
-    SN_energy = pin->GetReal("supernova","energy_1");
-    SN_radius = pin->GetReal("supernova","radius_1");
-    SN_mass = pin->GetReal("supernova","mass_1");
+    supernova_list = read_supernova_list(pin, ndim); // 需要传入 ndim，从而确定区域的维数
   }
-
 
   // 读取自定义的 AMR 参数
   if (adaptive) {
@@ -253,7 +245,7 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
 
 // 调用时机：程序启动时（应该不包括 restart 时？）
 // 函数用途：设定初始条件（每个 MeshBlock 的）
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+void MeshBlock::ProblemGenerator(ParameterInput *pin) {  
   init_cond_type = pin->GetOrAddString("initial_condition","init_cond_type","uniform");
   power_law_index = pin->GetOrAddReal("initial_condition","power_law_index",0.0);   // 一般情况下是负数
   alpha = pin->GetOrAddReal("initial_condition","alpha",0.3333333);
@@ -341,6 +333,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     Real rho_inside = pin->GetReal(block,"rho_inside");
     Real E_tot_inside = pin->GetReal(block,"E_tot_inside");
 
+    Heart heart({0, 0, 0}, heart_size, a, b); // 构造一个心形区域。目前默认 center 是 (0,0,0)
+
     Real x,y,z;
     for (int k=ks; k<=ke; k++) {
       for (int j=js; j<=je; j++) {
@@ -349,7 +343,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
           y = pcoord->x2v(j);
           x = pcoord->x1v(i);
 
-          if ( in_heart(a, b, x/heart_size, y/heart_size, z) ) {
+          if ( heart.contains({x, y, z}) ) {
             phydro->u(IDN,k,j,i) = rho_inside;
             phydro->u(IEN,k,j,i) = E_tot_inside;
           } else {

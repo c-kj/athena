@@ -35,7 +35,7 @@ bool Ball::contains(const Point &point) const {
 
 
 Heart::Heart(const Point &center, const Real size, const Real a, const Real b) : center(center), size(size), a(a), b(b) {
-  dim = 2;
+  dim = 2; // 如果要兼容 3D 的话，需要仔细考虑
   volume = PI*a*b * SQR(size);
 }
 

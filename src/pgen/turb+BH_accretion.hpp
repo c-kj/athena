@@ -16,6 +16,8 @@
 // #include "../parameter_input.hpp"
 // #include "../utils/utils.hpp"
 
+#include "ckj_code/supernova.hpp"
+
 
 // 声明自定义的全局变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
@@ -36,6 +38,9 @@ Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r);
 int SN_flag;
 std::string SN_type;
 Real SN_time, SN_energy, SN_radius, SN_mass;
+
+std::vector<SuperNova> supernova_list;
+std::vector<SuperNova*> supernova_to_inject;
 
 
 
