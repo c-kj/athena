@@ -22,6 +22,8 @@ void ensure_parent_directory_exists(const std::string &path);
 
 std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_and_levels(ParameterInput *pin);
 
+std::array<Real, 3> read_array(std::string str, char delimiter=',');
+std::vector<Real> read_vector(std::string str, char delimiter=',');
 
 
 // debug 机制。以后 utils 比较臃肿时可以挪到单独的 debugging.hpp 中定义。
