@@ -27,7 +27,8 @@
 Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
 
 
-
+std::string integrator;
+ParameterInput *global_pin;
 
 
 std::string init_cond_type;
@@ -37,7 +38,7 @@ Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r);
 //TEMP
 int SN_flag;
 std::string SN_type;
-Real SN_time, SN_energy, SN_radius, SN_mass;
+Real SN_time;
 
 std::vector<SuperNova> supernova_list;
 std::vector<SuperNova*> supernova_to_inject;

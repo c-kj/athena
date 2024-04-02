@@ -51,7 +51,9 @@ Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
   return pow(1 + alpha * R_Bondi / r, 1.5);
 }
 
-
+// Source Term 源项
+//* 应该只依赖于 prim 而修改 cons。不能修改 prim。不应该依赖于 cons（尤其是因为 cons 可能被前面的源项修改）。
+//? 以后可能考虑把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
@@ -61,7 +63,34 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   const Real& mesh_dt = pmb->pmy_mesh->dt;
   const Real dt_ratio = dt/mesh_dt;
 
-  if (SN_flag > 0 && dt == mesh_dt ) { //* 目前设定只有 VL2 的校正步才找出需要注入的超新星
+  Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
+
+  // 处理适应于 integrator 的超新星注入时机
+  bool SN_flag_in_this_step = false;
+  if (SN_flag > 0) {
+    // 判断是否应该在这次调用 source term 时注入超新星
+    if (integrator == "vl2") { // VL2: 只在校正步注入
+      if (dt_ratio == 1.) {
+        inject_ratio = 1.;
+        SN_flag_in_this_step = true;
+      } else if (dt_ratio == .5) {
+        inject_ratio = 0.; // 奇怪，这里设为负数都行，不会影响结果。但 >0.25 左右就会炸步长
+      } 
+    } else if (integrator == "rk2") { // RK2: 只在完整步长的那一步注入 
+      if (dt_ratio == 1.) {
+        inject_ratio = 0.; // 这里似乎会影响注入的能量/质量，但数值只有一半的贡献。具体为什么暂时不管了。会炸步长。
+      } else if (dt_ratio == .5) {
+        inject_ratio = 1.;
+        SN_flag_in_this_step = true;
+      } 
+    } else { //* 其他 integrator，目前不处理，让他炸步长吧
+      // throw std::runtime_error("Unsupported integrator! Only VL2 and RK2 are supported.");
+      inject_ratio = 1.;
+      SN_flag_in_this_step = true;
+    }
+  }
+
+  if ( SN_flag_in_this_step ) { // 只有这一步有可能注入超新星时，才找出需要注入的超新星
     // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
     supernova_to_inject = {}; // 每次都要先清空
     for (SuperNova& SN : supernova_list) {
@@ -100,14 +129,15 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             // 这里可以稍微优化，快一点
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
           }
+
           // 超新星爆炸的能量和质量注入
-          if (SN_flag > 0 && dt == mesh_dt) {  //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
+          if ( SN_flag_in_this_step ) {  //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
             for (SuperNova* SN : supernova_to_inject) {
               if ( SN->energy_region->contains({x,y,z}) ) {
-                cons(IEN,k,j,i) += SN->energy_density * dt_ratio;
+                cons(IEN,k,j,i) += SN->energy_density * inject_ratio;
               }
               if ( SN->mass_region->contains({x,y,z}) ) {
-                cons(IDN,k,j,i) += SN->mass_density * dt_ratio;
+                cons(IDN,k,j,i) += SN->mass_density * inject_ratio;
               }
               // 这里的 debug 信息不再那么有用，将来可以考虑删去
               // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
@@ -202,6 +232,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_in_BH = pin->GetReal("problem","rho_in_BH");
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
+
+  integrator = pin->GetOrAddString("time", "integrator", "vl2"); // 记录 integrator。目前用来处理超新星的注入时机
 
   // 读取超新星的参数
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);
