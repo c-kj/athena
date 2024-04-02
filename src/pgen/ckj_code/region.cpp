@@ -49,16 +49,3 @@ bool Heart::contains(const Point &point) const {
   y = sqrt(a)*y + 0.5;
   return (a-x*x > 0 && pow(x*x, 1./5.) - b*sqrt(a-x*x) < y && y < pow(x*x, 1./5.) + b*sqrt(a-x*x));
 }
-
-
-// bool in_heart(Real a, Real b, Real x, Real y, Real z) {
-//   x = sqrt(a)*x;
-//   y = sqrt(a)*y + 0.5;
-//   return (a-x*x > 0 && pow(x*x, 1./5.) - b*sqrt(a-x*x) < y && y < pow(x*x, 1./5.) + b*sqrt(a-x*x));
-// }
-
-// TODO 把所有用到 in_heart 的部分都改为使用完整的 Heart 类
-bool in_heart(Real a, Real b, Real x, Real y, Real z) {
-  Heart heart({0, 0, 0}, 1, a, b);
-  return heart.contains({x, y, z});
-}

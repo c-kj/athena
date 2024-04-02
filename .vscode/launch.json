@@ -8,7 +8,8 @@
             "args": ["-d", "output", "-i", "test_SN.athinput"],
             "stopAtEntry": false,
             // "cwd": "${fileDirname}",
-            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
+            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/energy+mass/3D_128/r=0.02_mass=1_test_RK2", //? 也许可以有更好的方法？
+            // "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb",

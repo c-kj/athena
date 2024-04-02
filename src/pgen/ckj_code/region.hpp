@@ -38,8 +38,6 @@ struct Heart : public Region {
     bool contains(const Point &point) const override;
 };
 
-bool in_heart(Real a, Real b, Real x, Real y, Real z);
-
 
 
 #endif // REGION_HPP_

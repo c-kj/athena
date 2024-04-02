@@ -112,7 +112,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
               // 这里的 debug 信息不再那么有用，将来可以考虑删去
               // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
               //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-              //     printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+                  // printf_and_save_to_stream(debug_stream, 
+                  // "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
+                  // time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
               //   }
               // } 
             }
@@ -157,7 +159,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
   // 对于那些 *dt 的增量更新操作不必考虑，但对于直接附加的量（SN 爆炸能量），需要专门处理。
   if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
-    printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+    printf_and_save_to_stream(debug_stream, 
+    "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
+    time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
   }
 
   return;
