@@ -65,7 +65,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 
   Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
 
-  // 处理适应于 integrator 的超新星注入时机
+  //* 处理适应于 integrator 的超新星注入时机
   bool SN_flag_in_this_step = false;
   if (SN_flag > 0) {
     // 判断是否应该在这次调用 source term 时注入超新星
@@ -107,6 +107,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
     z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
       y = pmb->pcoord->x2v(j);
+#pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         x = pmb->pcoord->x1v(i);
         r = sqrt(x*x + y*y + z*z);
@@ -130,8 +131,8 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
           }
 
-          // 超新星爆炸的能量和质量注入
-          if ( SN_flag_in_this_step ) {  //* 目前设定只有 VL2 的校正步才注入能量。对于其他积分器，需要测试。
+          // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
+          if ( SN_flag_in_this_step ) {
             for (SuperNova* SN : supernova_to_inject) {
               if ( SN->energy_region->contains({x,y,z}) ) {
                 cons(IEN,k,j,i) += SN->energy_density * inject_ratio;
@@ -420,9 +421,24 @@ void Mesh::UserWorkInLoop() {
 }
 
 
-// 调用时机：每个将要输出 output 的时间步的末尾。和 Mesh::UserWorkInLoop 谁先？
+// 调用时机：每个将要输出 output 的时间步的末尾。//? 和 Mesh::UserWorkInLoop 谁先？
 // 函数用途：计算用户定义的输出变量
 void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
+  if (gid == 0){
+    // 自定义的 print 信息： 用 ✅ 标记是否在这一步进行了文件 Output
+    std::string spaces = std::string(66, ' '); // 用于跳到 Athena++ 原本的输出的末尾
+    std::string marker = "✅" ;
+
+    if (pmy_mesh->time == 0.0) { // 第一步因为 Athena++ 会输出 "\n Setup complete ... \n" 什么的，所以要特殊处理
+      std::cout << "\n" << spaces << "Output"; // header 跟 Setup complete ... 同一行
+      std::cout << std::string(2, '\n');     
+      std::cout << spaces << marker << " " << pin->GetInteger("output2", "file_number") << "\r"; // 输出完后回到行首，让 Athena++ 打印其信息
+      std::cout << "\033[A\033[A\033[A";        // 输出完后再向上 3 行回去
+    } else {
+      std::cout << spaces << marker << " " << pin->GetInteger("output2", "file_number") << "\r";
+    }
+    //TODO 在输出 output 时，也把当前时间输出到 ./info 下一个单独的文件，这样就不用从每个 ds 中单独读取了。但需要找到 pin 中合适的 <output[n]> block
+  }
   return;
 }
 
