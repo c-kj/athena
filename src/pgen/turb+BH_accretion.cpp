@@ -429,13 +429,21 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
     std::string spaces = std::string(66, ' '); // 用于跳到 Athena++ 原本的输出的末尾
     std::string marker = "✅" ;
 
+    // 匿名函数，用于在一行内输出 output 的信息
+    auto output_in_line = [=](){ // 用 = 表示捕获所有外部变量的值
+      std::cout << spaces 
+      << marker << " " << pin->GetInteger("output2", "file_number")  // 文件编号。//TODO 目前 hard code 为 output2，以后改为最主要的那个 output
+      << " " << pmy_mesh->nbtotal << " " << pmy_mesh->nbnew << " " << pmy_mesh->nbdel   // MeshBlock 的数量
+      << "\r"; // 输出完后回到行首，让 Athena++ 打印其原本要打印的信息
+    };
+
     if (pmy_mesh->time == 0.0) { // 第一步因为 Athena++ 会输出 "\n Setup complete ... \n" 什么的，所以要特殊处理
-      std::cout << "\n" << spaces << "Output"; // header 跟 Setup complete ... 同一行
+      std::cout << "\n" << spaces << "Output" << std::string(2, ' ') << " MeshBlocks"; // header 跟 Setup complete ... 同一行
       std::cout << std::string(2, '\n');     
-      std::cout << spaces << marker << " " << pin->GetInteger("output2", "file_number") << "\r"; // 输出完后回到行首，让 Athena++ 打印其信息
+      output_in_line();
       std::cout << "\033[A\033[A\033[A";        // 输出完后再向上 3 行回去
     } else {
-      std::cout << spaces << marker << " " << pin->GetInteger("output2", "file_number") << "\r";
+      output_in_line();
     }
     //TODO 在输出 output 时，也把当前时间输出到 ./info 下一个单独的文件，这样就不用从每个 ds 中单独读取了。但需要找到 pin 中合适的 <output[n]> block
   }
