@@ -43,6 +43,9 @@ Real SN_time;
 std::vector<SuperNova> supernova_list;
 std::vector<SuperNova*> supernova_to_inject;
 
+bool cooling_flag;
+std::string cooling_model;
+
 
 
 //TODO 把 debug 机制相关的变量也都挪到 utils 或 debugging 中去

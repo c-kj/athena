@@ -45,6 +45,7 @@
 #include "ckj_code/region.hpp"
 #include "ckj_code/refinement_condition.hpp"
 #include "ckj_code/supernova.hpp"
+#include "ckj_code/cooling.hpp"
 
 
 Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
@@ -59,9 +60,21 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
 
+  // TEMP
+  if (cooling_flag) {
+    CoolingSourceTerm(cooling_model, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
   const Real& mesh_time = pmb->pmy_mesh->time;
   const Real& mesh_dt = pmb->pmy_mesh->dt;
   const Real dt_ratio = dt/mesh_dt;
+
+  auto punit = pmb->pmy_mesh->punit;
+  Real SN_energy_unit, SN_mass_unit;
+  if (true) { //TEMP 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun
+    SN_energy_unit = punit->bethe_code;
+    SN_mass_unit = punit->solar_mass_code;
+  };
 
   Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
 
@@ -129,16 +142,17 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           if (NON_BAROTROPIC_EOS) {
             // 这里可以稍微优化，快一点
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
+            //? 这里是否需要考虑把平方项补偿上去？有待测试。
           }
 
           // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
           if ( SN_flag_in_this_step ) {
             for (SuperNova* SN : supernova_to_inject) {
               if ( SN->energy_region->contains({x,y,z}) ) {
-                cons(IEN,k,j,i) += SN->energy_density * inject_ratio;
+                cons(IEN,k,j,i) += SN->energy_density * inject_ratio * SN_energy_unit; //TEMP
               }
               if ( SN->mass_region->contains({x,y,z}) ) {
-                cons(IDN,k,j,i) += SN->mass_density * inject_ratio;
+                cons(IDN,k,j,i) += SN->mass_density * inject_ratio * SN_mass_unit; //TEMP
               }
               // 这里的 debug 信息不再那么有用，将来可以考虑删去
               // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
@@ -235,6 +249,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
   integrator = pin->GetOrAddString("time", "integrator", "vl2"); // 记录 integrator。目前用来处理超新星的注入时机
+
+  cooling_model = pin->GetOrAddString("cooling","cooling_model","none");
+  cooling_flag = cooling_model != "none";  // 如果 cooling_model 不是 none，那么就是启用 cooling
 
   // 读取超新星的参数
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);

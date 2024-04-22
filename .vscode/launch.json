@@ -1,14 +1,21 @@
 {
     "configurations": [
         {
+            "name": "Athena++ 调试（附加）",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceRoot}/bin/athena",
+            "MIMode": "lldb",
+        },
+        {
             "name": "Athena++ 调试",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/bin/athena",
-            "args": ["-d", "output", "-i", "test_SN.athinput"],
+            "args": ["-d", "output", "-i", "test_units.athinput"],  //CHANGEME 修改 .athinput 文件名
             "stopAtEntry": false,
             // "cwd": "${fileDirname}",
-            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/energy+mass/3D_128/r=0.02_mass=1_test_output", //? 也许可以有更好的方法？
+            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/test_units/r=0.01_cooling", //CHANGEME 修改路径 //? 也许可以有更好的方法？ 
             // "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
             "environment": [],
             "externalConsole": false,
