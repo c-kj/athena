@@ -60,9 +60,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
 
-  // TEMP
-  if (cooling_flag) {
-    CoolingSourceTerm(cooling_model, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  //* CoolingSourceTerm 目前放在 SourceTerm 中，以后可能考虑改到 UserWorkInLoop 中
+  if (cooling.cooling_flag) {
+    cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
   const Real& mesh_time = pmb->pmy_mesh->time;
@@ -71,7 +71,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 
   auto punit = pmb->pmy_mesh->punit;
   Real SN_energy_unit, SN_mass_unit;
-  if (true) { //TEMP 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun
+  if (true) { // 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun。若有需求再改
     SN_energy_unit = punit->bethe_code;
     SN_mass_unit = punit->solar_mass_code;
   };
@@ -149,10 +149,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           if ( SN_flag_in_this_step ) {
             for (SuperNova* SN : supernova_to_inject) {
               if ( SN->energy_region->contains({x,y,z}) ) {
-                cons(IEN,k,j,i) += SN->energy_density * inject_ratio * SN_energy_unit; //TEMP
+                cons(IEN,k,j,i) += SN->energy_density * inject_ratio * SN_energy_unit;
               }
               if ( SN->mass_region->contains({x,y,z}) ) {
-                cons(IDN,k,j,i) += SN->mass_density * inject_ratio * SN_mass_unit; //TEMP
+                cons(IDN,k,j,i) += SN->mass_density * inject_ratio * SN_mass_unit;
               }
               // 这里的 debug 信息不再那么有用，将来可以考虑删去
               // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
@@ -212,6 +212,20 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   return;
 }
 
+
+
+//TODO 在注入 SuperNova 之后，立即减小 TimeStep？
+Real MyTimeStep(MeshBlock *pmb) {
+  Real min_dt = std::numeric_limits<Real>::infinity();  // 先初始化为一个很大的数
+
+  if (cooling.cooling_flag) {
+    Real cooling_dt = cooling.CoolingTimeStep(pmb);
+    min_dt = std::min(min_dt, cooling_dt);
+  }
+  return min_dt;
+}
+
+
 //========================================================================================
 // 以下是 Athena++ 提供的接口
 //========================================================================================
@@ -250,8 +264,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   integrator = pin->GetOrAddString("time", "integrator", "vl2"); // 记录 integrator。目前用来处理超新星的注入时机
 
-  cooling_model = pin->GetOrAddString("cooling","cooling_model","none");
-  cooling_flag = cooling_model != "none";  // 如果 cooling_model 不是 none，那么就是启用 cooling
+  cooling = Cooling(pin, this);
 
   // 读取超新星的参数
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);

@@ -17,6 +17,7 @@
 // #include "../utils/utils.hpp"
 
 #include "ckj_code/supernova.hpp"
+#include "ckj_code/cooling.hpp"
 
 
 // 声明自定义的全局变量，从 input file 中读取
@@ -43,9 +44,7 @@ Real SN_time;
 std::vector<SuperNova> supernova_list;
 std::vector<SuperNova*> supernova_to_inject;
 
-bool cooling_flag;
-std::string cooling_model;
-
+Cooling cooling;  //* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变。如果对象很大，可能会消耗大量的栈空间。
 
 
 //TODO 把 debug 机制相关的变量也都挪到 utils 或 debugging 中去
