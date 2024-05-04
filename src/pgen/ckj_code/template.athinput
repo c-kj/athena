@@ -119,8 +119,8 @@ GM_BH = 1
 R_in = 0.1             # CHANGEME: Sink radius 需要根据最小网格的大小来调整
 R_out = 1              
 rho_in_BH = 1e-4
-rho_init = 1
-E_tot_init = 400.0     # CHANGEME: 初始总能量
+rho_init = 1           # TODO 改用 n 和 mu？
+E_tot_init = 400.0     # CHANGEME: 初始总能量  #TODO 改用 声速 or 温度？
 
 
 <debug>
@@ -138,7 +138,7 @@ level_2 = 5
 
 ###### TODO 有待实现 ######
 <initial_condition>
-init_cond_type = uniform   # 可选值："uniform", "power_law", "approximate_Bondi", "rotation"
+init_cond_type = uniform   # 可选值：uniform, power_law, approximate_Bondi, rotation
 # rho_at_boundary = 1.   # 暂时不用这个，而是用 <problem> 里的 rho_init
 # E_tot_at_boundary = 1. # 暂时不用这个，而是用 <problem> 里的 E_tot_init
 power_law_index = -1.5   #?
@@ -156,6 +156,10 @@ SN_1_radius = 0.01                    # region 的半径
 # SN_1_mass_radius = 0.0                
 # SN_1_region = ball                    # energy_region 和 mass_region 的种类。可选值：ball, heart
 # SN_1_velocity = 0.0, 0.0, 0.0         # SN 本身运动的速度
+
+
+<units>
+unit_system = supernova              # 我自定义的 supernova 单位制, [length] = pc, [density] = m_H/cm**3, [time] = Myr
 
 
 

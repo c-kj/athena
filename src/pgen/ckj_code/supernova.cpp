@@ -9,7 +9,7 @@
 #include "utils.hpp"
 
 
-
+// SuperNova 的构造函数
 SuperNova::SuperNova(ParameterInput *pin, const int i, const int dim) {
   std::string block_name, i_str, center_str;
   Real radius, energy_radius, mass_radius;

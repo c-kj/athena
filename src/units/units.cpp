@@ -50,6 +50,12 @@ Units::Units(ParameterInput *pin) :
     code_length_cgs_ = Constants::kpc_cgs;
     code_mass_cgs_ = 1.4*Constants::hydrogen_mass_cgs*CUBE(code_length_cgs_);
     code_time_cgs_ = Constants::million_yr_cgs;
+  } else if (unit_system.compare("supernova") == 0) {
+    // 我自定义的 supernova unit system: [length] = pc, [density] = m_H/cm**3, [time] = Myr 。
+    // 这样，code_density == 1 对应着 mu * n_cgs = 1 / cm**3
+    code_length_cgs_ = Constants::pc_cgs;
+    code_mass_cgs_ = Constants::hydrogen_mass_cgs*CUBE(code_length_cgs_);
+    code_time_cgs_ = Constants::million_yr_cgs;
   } else if (unit_system.compare("custom") == 0) {
     // this must raise error if MLT units are not given in the input file
     code_mass_cgs_ = pin->GetReal("units", "mass_cgs");
