@@ -225,6 +225,28 @@ Real MyTimeStep(MeshBlock *pmb) {
   return min_dt;
 }
 
+//========================================================================================
+// 自定义 hst Output
+//========================================================================================
+// hst_NaN 用于在某些配置下，直接输出 nan。这样在读取时就可以很容易发现相应的 hst 输出是不启用的。
+// 在 EnrollUserHistoryOutput 时，使用三目运算符来使用 hst_NaN，这样应该比在相应的 hst function 里返回 NaN 要更快一点。
+inline Real hst_NaN(MeshBlock *pmb, int iout) {
+  return std::numeric_limits<Real>::quiet_NaN();
+}
+
+// 统计总共有多少个 MeshBlocks
+inline Real hst_num_MeshBlocks(MeshBlock *pmb, int iout) {
+  return 1;  // 每个 MeshBlock 返回 1，最后加起来。
+}
+
+inline Real hst_dt_hyperbolic(MeshBlock *pmb, int iout) {
+  return pmb->pmy_mesh->dt_hyperbolic;
+}
+inline Real hst_dt_user(MeshBlock *pmb, int iout) {
+  return pmb->pmy_mesh->dt_user;  
+  // 如果没 EnrollUserTimeStepFunction，这里的 dt_user 会是 Athena++ 内部初始化时设定的 std::numeric_limits<Real>::max()
+}
+
 
 //========================================================================================
 // 以下是 Athena++ 提供的接口
@@ -290,14 +312,29 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     printf("DEBUG: saving debug info to file %s \n", debug_filepath.c_str());
   }
 
+  // Enroll 各种自定义函数
+
   // 将自定义的源项注册到 Athena++ 中
   // 调用时机：在每个时间步中调用两次，一次在开头，一次在中间
   EnrollUserExplicitSourceFunction(SMBH_grav);
 
   // 将自定义的 AMR 条件注册到 Athena++ 中
-  if(adaptive){
+  if (adaptive) {
     EnrollUserRefinementCondition(RefinementCondition);
   }
+  // 自定义的步长限制
+  EnrollUserTimeStepFunction(MyTimeStep);  // 无论如何都加入自定义步长限制。如果没开 Cooling 之类的，则 MyTimeStep 立即返回一个很大的数，不影响速度
+
+
+  // 自定义的 hst Output
+  AllocateUserHistoryOutput(3);
+  EnrollUserHistoryOutput(0, hst_num_MeshBlocks, "num_MeshBlocks");
+  EnrollUserHistoryOutput(1, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
+  EnrollUserHistoryOutput(2, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
+
+  // Print unit 相关信息
+  punit->PrintCodeUnits();
+  punit->PrintConstantsInCodeUnits();
 
   return;
 }
