@@ -26,6 +26,7 @@
 #include "../mesh/mesh.hpp"
 #include "../parameter_input.hpp"
 #include "../utils/utils.hpp"
+#include "../scalars/scalars.hpp"
 
 #ifdef OPENMP_PARALLEL
 #include <omp.h>
@@ -60,8 +61,12 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
 
+  //TODO 这里应该放到 SourceTerm 的最后？这样和 operator splitting 的顺序一致。但会导致 Cooling Timestep 没有被立刻限制。而放在前面则似乎能限制 Timestep，但输出变量是没包含 Cooling 的
+  // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
+  // 放在 SourceTerm 与 UserWorkInLoop 的区别是：SourceTerm 中 Cooling 使用的是未被其它 SourceTerm（比如 SN、Grav）修改的 prim。
+  // 如果这一步注入 SN，那么 SourceTerm 并不会在这一步就产生强冷却，但 UserWorkInLoop 会立刻产生强冷却（而且步长未被限制）。
   //* CoolingSourceTerm 目前放在 SourceTerm 中，以后可能考虑改到 UserWorkInLoop 中
-  if (cooling.cooling_flag) {
+  if (cooling.cooling_flag && !cooling.operator_splitting) {
     cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
@@ -69,12 +74,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   const Real& mesh_dt = pmb->pmy_mesh->dt;
   const Real dt_ratio = dt/mesh_dt;
 
-  auto punit = pmb->pmy_mesh->punit;
-  Real SN_energy_unit, SN_mass_unit;
-  if (true) { // 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun。若有需求再改
-    SN_energy_unit = punit->bethe_code;
-    SN_mass_unit = punit->solar_mass_code;
-  };
+  Units *punit = pmb->pmy_mesh->punit;
+  // 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun。若有需求再改
+  Real SN_energy_unit = punit->bethe_code;
+  Real SN_mass_unit = punit->solar_mass_code;
 
   Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
 
@@ -215,6 +218,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 
 
 //TODO 在注入 SuperNova 之后，立即减小 TimeStep？
+// 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
 Real MyTimeStep(MeshBlock *pmb) {
   Real min_dt = std::numeric_limits<Real>::infinity();  // 先初始化为一个很大的数
 
@@ -471,6 +475,14 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 // 调用时机：在每个时间步的结尾。每个 MeshBlock 调用一次
 // 函数用途：仅用于分析，不用于操作数据
 void MeshBlock::UserWorkInLoop() {
+  if (cooling.cooling_flag && cooling.operator_splitting) {  // 如果开启了 operator splitting，则在 UserWorkInLoop 中调用 CoolingSourceTerm
+    // 这里调用的参数，参考 src/task_list/time_integrator.cpp 中 AddSourceTerms 的调用
+    cooling.CoolingSourceTerm(this, pmy_mesh->time, pmy_mesh->dt,
+                              phydro->w, pscalars->r, pfield->bcc,
+                              phydro->u, pscalars->s);
+    //BUG 这里只修改了 cons？？ prim 似乎没有更新呀？cons 的更新会传递给下一步吗？会反映到当前步的 output 吗？
+    // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
+  }
   return;
 }
 
@@ -497,7 +509,7 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
     std::string marker = "✅" ;
 
     // 匿名函数，用于在一行内输出 output 的信息
-    auto output_in_line = [=](){ // 用 = 表示捕获所有外部变量的值
+    auto output_in_line = [&](){ // 用 = 表示捕获所有外部变量的值
       std::cout << spaces 
       << marker << " " << pin->GetInteger("output2", "file_number")  // 文件编号。//TODO 目前 hard code 为 output2，以后改为最主要的那个 output
       << " " << pmy_mesh->nbtotal << " " << pmy_mesh->nbnew << " " << pmy_mesh->nbdel   // MeshBlock 的数量

@@ -163,15 +163,16 @@ unit_system = supernova              # 我自定义的 supernova 单位制, [len
 
 
 <cooling>
-cooling_model = supernova            # Cooling Function (Emissivity) 所使用的模型。可选值: none, supernova, #TODO
-CFL_cooling   = 0.5                  # Cooling TimeStep 与 Cooling Timescale 的比值
-#TODO 以下待实现
+cooling_model = Draine_2011          # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
+CFL_cooling   = 0.5                  # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
 operator_splitting = true            # 若为 true 则使用 operator-splitting，在 UserWorkInLoop 中调用 CoolingSourceTerm。
 implicit = true                      # 若为 true 则使用隐式求解器，否则使用显式求解器。
-integrator = Euler                   # 可选值: Euler, RK2, RK4, ...
-root_finder = Newton                 # 可选值: Newton, FixedPoint, Bisection
-max_iteration = 1                    # root_finder 的最大迭代次数，默认为 1 (半隐式)
-rtol =                               # root_finder 的相对误差
-atol =                               # root_finder 的绝对误差
-CFL_subcycle =                       # dt_subcycle = CFL_subcycle * ???
-T_floor = 
+integrator = Euler                   # 可选值: Euler, /  RK2, RK4, ...
+CFL_subcycle = 0.5                   # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle
+subcycle_adaptive = true             # dt_subcycle 是否在子循环中自适应调整
+max_iter = 1                         # root_finder 的最大迭代次数，默认为 1 (半隐式)
+rel_tol = 1e-6                       # root_finder 的相对误差
+abs_tol = 1e-6                       # root_finder 的绝对误差
+T_floor = 1e2                        # Cooling 的温度 floor
+#TODO 以下待实现
+root_finder = Newton                 # 可选值: Newton, FixedPoint, Bisection, ...

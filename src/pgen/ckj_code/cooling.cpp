@@ -1,13 +1,11 @@
 
 // Athena++ headers
-#include "../../athena.hpp"
-#include "../../athena_arrays.hpp"
 #include "../../eos/eos.hpp"
-#include "../../mesh/mesh.hpp"
 #include "../../hydro/hydro.hpp"
 
 // 自定义的头文件
 #include "cooling.hpp"
+#include "my_outputs.hpp"
 
 
 Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
@@ -18,9 +16,25 @@ Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) { 
   
   CFL_cooling = pin->GetOrAddReal("cooling", "CFL_cooling", 1.0); 
   if (CFL_cooling <= 0.0) {throw std::invalid_argument("CFL_cooling must be positive!");}
-  // operator_splitting = pin->GetOrAddBoolean("cooling", "operator_splitting", true);
+  operator_splitting = pin->GetOrAddBoolean("cooling", "operator_splitting", true);
   implicit = pin->GetOrAddBoolean("cooling", "implicit", true);
   integrator = pin->GetOrAddString("cooling", "integrator", "Euler");
+  T_floor_cgs = pin->GetOrAddReal("cooling", "T_floor", 1e2);
+
+  // RootFinder 的参数
+  max_iter = pin->GetOrAddInteger("cooling", "max_iter", 1);
+  rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);
+  abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 1e-6);
+
+  // Subcycle 的参数
+  CFL_subcycle = pin->GetOrAddReal("cooling", "CFL_subcycle", 1.0);
+  subcycle_adaptive = pin->GetOrAddBoolean("cooling", "subcycle_adaptive", true);
+
+  if (operator_splitting != implicit) {
+    std::cerr << "[警告] 在 cooling 的配置中, operator_splitting 应当和 implicit 一致！\n";
+  }
+
+  model = CoolingModel::Create(cooling_model);  // 根据输入的 cooling_model 字符串，创建一个 CoolingModel 的指针
 
 
   // 设定元素丰度（H, He, Metal 的质量分数） //* 目前暂时放在 Cooling 类的成员变量中，但如果组分要演化，则再考虑更改。
@@ -36,20 +50,20 @@ Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) { 
 
 
 // 返回冷却函数的值 (in cgs unit)
-const Real Cooling::CoolingFunction(Real T_cgs) {
-  if (T_cgs <= 0.0) return 0.0; // 避免 T<0 时指数截断反而变得巨大
-  if (cooling_model == "supernova") { 
-  // Drain 2011, ISM textbook, Sec 34.1, eqn 34.2 & 34.3。用于估计 SN shock cooling 的简单幂律函数。高于 10^(7.3) K 的部分是轫致辐射主导的。
-    if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ){
-      return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(-1.18348e5/T_cgs); //TEMP 指数截断，具体的值有待调整
-    } else if ( std::pow(10.0, 7.3) < T_cgs ) {
-      return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
-    }
-  } else {
-    throw std::invalid_argument("cooling_model not supported");
-  }
-  return 0.0;  // 默认返回值
-}
+// Real Cooling::CoolingFunction(Real T_cgs) const {
+//   if (T_cgs <= 0.0) { return 0.0;} // 避免 T<0 时指数截断反而变得巨大
+//   if (cooling_model == "supernova") { 
+//   // Drain 2011, ISM textbook, Sec 34.1, eqn 34.2 & 34.3。用于估计 SN shock cooling 的简单幂律函数。高于 10^(7.3) K 的部分是轫致辐射主导的。
+//     if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ){
+//       return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(-1.18348e5/T_cgs); //TEMP 指数截断，具体的值有待调整
+//     } else if ( std::pow(10.0, 7.3) < T_cgs ) {
+//       return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
+//     }
+//   } else {
+//     throw std::invalid_argument("cooling_model not supported");
+//   }
+//   return 0.0;  // 默认返回值
+// }
 
 
 // 计算 Cooling Rate (in code unit)，即 d(能量密度) / dt。//* 注意：这里 Cooling Rate 是正数！
@@ -63,7 +77,7 @@ Real Cooling::CoolingRate(const Real &rho, const Real &P) const { //TODO 这里�
   Real n_H_cgs = rho_cgs * X_H / Constants::hydrogen_mass_cgs;  //? 这么算适用于 Draine 2011 吗？ 适用于其他 Cooling Function 吗？
   
   //? 使用 n_e * n_H 还是 n * n ? 这取决于文献给出 Cooling Function 时如何做归一化。
-  Real cooling_rate_code = n_e_cgs * n_H_cgs * CoolingFunction(T_cgs) / (punit->code_energydensity_cgs /  punit->code_time_cgs); 
+  Real cooling_rate_code = n_e_cgs * n_H_cgs * model->CoolingFunction(T_cgs) / (punit->code_energydensity_cgs /  punit->code_time_cgs); 
   
   return cooling_rate_code;
 }
@@ -97,18 +111,67 @@ Real Cooling::CoolingTimeStep(MeshBlock *pmb) const {
   return cooling_dt;
 }
 
+// 求解 dy/dt = RHS(y)，给出 dy
+Real Cooling::Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt) const {
+  Real dy = 0.0;
+  if (!implicit) { // 显式 integrator
+    if (integrator == "Euler") {
+      dy = RHS(y0) * dt;
+    } else {
+      throw std::invalid_argument("integrator not supported");
+    }
+  } else { // 隐式 integrator
+    std::function<Real(Real)> func;  // 若为隐式离散化，则把方程整理成关于待求的 dy 的函数 func，用 RootFinder 求根
+    if (integrator == "Euler") {
+      func = [&RHS,&y0,&dt](Real dy) {return RHS(y0+dy)*dt - dy;};  // 用于RootFinder 的函数
+    } else {
+      throw std::invalid_argument("integrator not supported");
+    }
+
+    dy = RootFinder(func, 0.0, max_iter, rel_tol, abs_tol);
+  }
+  return dy;
+}
+
+// 求解 func(x) == 0 的方程，给出 x 的根。初始猜测为 x0
+Real Cooling::RootFinder(const std::function<Real(Real)>& func, Real x0, int max_iter, Real rel_tol, Real abs_tol) {
+  Real x = x0;
+  for (int i = 0; i < max_iter; ++i) {  // 最多迭代 max_iter 次。若 max_iter 为 1，则为 ODE 的半隐式方法
+    Real tol = rel_tol * std::abs(x) + abs_tol;  // 在每次迭代中，都根据 x 的值重新计算 tol
+    if (std::abs(func(x)) < tol) {  // 如果满足精度要求，则退出循环
+      break;
+    } else {
+      // Newton-Raphson 迭代
+      Real df_dx = FiniteDifferenceDerivative(func, x);  // 目前使用有限差分来计算导数
+      x = x - func(x) / df_dx;
+    }
+  }
+  return x;
+}
+
+// 求函数 func(x) 在 x 处的导数值
+Real Cooling::FiniteDifferenceDerivative(const std::function<Real(Real)>& func, Real x) {
+  // 这部分参照 Numerical Recipes 5.7 的内容
+  static const Real epsilon = std::numeric_limits<Real>::epsilon();
+  Real h = std::pow(epsilon, 1.0/3.0);  // 对于二阶精度中心差分，幂次是 1/3; 如果是一阶精度单侧差分，幂次要改为 1/2
+  h *= std::max(1.0, std::abs(x));  // 乘以相应的特征长度 x，但若 x 太小则截断为 1.0
+
+  // 调整 h 的值以尽量避免舍入误差
+  volatile Real x_plus_h = x + h;
+  h = x_plus_h - x;  // 重新计算 h，以确保 h 是可被浮点数精确表示
+
+  return (func(x + h) - func(x - h)) / (2*h); // 使用中心差分，二阶精度
+  // 虽然中心差分需要额外计算一次 func 函数，但对于我这里的应用，CoolingFunction 的计算应该代价并不高，而更准确的导数会让 Newton RootFinder 更准确/更快收敛，所以暂时不需要使用单侧差分。
+}
+
+
 
 void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
                         const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
                         const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
                         AthenaArray<Real> &cons_scalar) {
 
-  Real T_floor_cgs = 1e2; // TEMP
-
-  Real gamma = pmb->peos->GetGamma(); //TEMP 只适用于理想气体 EoS 的情况
-
-
-  // Real t_cool = std::numeric_limits<Real>::max(); 
+  const Real gamma = pmb->peos->GetGamma(); // 只适用于 adiabatic EoS 的情况，如果是 GENERAL_EOS，则会直接报错。若要使用 GENERAL_EOS，所有调用 gamma 的地方都需要修改！
 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     for (int j = pmb->js; j <= pmb->je; ++j) {
@@ -118,62 +181,79 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         Real P = prim(IPR,k,j,i);
         //TEMP 尝试使用 cons 而非 prim？好像并不合理
         // Real rho = cons(IDN,k,j,i); 
-        // Real P = (gamma - 1.0) * (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  // 用 EoS 计算 P
-        if (P <= 0.0) { //TEMP
-          std::cout << "P = " << P << std::endl; 
-          throw std::invalid_argument("P <= 0.0");
-        }
-        
-        // Real E_thermal = pmb->peos->EgasFromRhoP(rho, P);  //BUG 现在不知道为啥有 bug
-        Real E_thermal = P / (gamma - 1.0);  //* 只适用于 Ideal Gas
-        //BUG 这里似乎不应该用 prim 来算，而是从 cons 中算出 E_thermal，这样才是 Limiter 所需要的「当前剩下的 E_thermal」
+        // Real P = (gamma - 1.0) * (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
 
-        //TEMP Integrator，待整理
-        Real dE = 0.0;
-        if (!implicit) {  // 显式 integrator
-          if (integrator == "Euler") {  // Forward Euler
-            Real cooling_rate = CoolingRate(rho, P);
-            dE = - cooling_rate * dt; 
-          } else {
-            throw std::invalid_argument("integrator not supported");
+        auto RHS = [&gamma,&rho,this](Real E_thermal) {
+          Real P = (gamma - 1.0) * E_thermal;
+          return - CoolingRate(rho, P);  // 注意这里是负号，因为 CoolingRate 是正数，而 dE/dt = RHS 是负数
+        };
+
+        Real E_thermal = P / (gamma - 1.0);
+        //BUG 这里似乎不应该用 prim 来算，而是从 cons 中算出 E_thermal，这样才是 Limiter 所需要的「当前剩下的 E_thermal」。对于 CoolingTimescale 的计算怎么办？
+
+
+        Real dE = 0.0;  // 用于最后返回的 dE （整个 TimeStep 的热能变化量）
+        Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
+        Real t_subcycle = 0.0;  // 从 0 增加到 dt
+        Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
+        while (t_subcycle < dt) { // 进入子循环
+          if (subcycle_adaptive || t_subcycle == 0.0) {  // 如果 subcycle_adaptive 则每个 subcycle 都重新计算 dt_subcycle，否则只在第一个子循环计算一次
+            dt_subcycle = CoolingTimeScale(E_thermal, CoolingRate(rho, P)) * CFL_subcycle; 
           }
-        } else {  // 隐式 integrator
-          if (integrator == "Euler") {  // Implicit Euler 算法, 不动点迭代
-            Real cooling_rate = 0.0;
-            for (int l = 0; l < 5; l++) {
-              cooling_rate = CoolingRate(rho, P + dE*(gamma - 1.0));
-              dE = - cooling_rate * dt;
-            }
-          } else if (integrator == "Semi-Implicit Euler") {  // Semi-Implicit Backward Euler 算法，这个命名是暂时的
-            Real dt_subcycle = std::min(CoolingTimeScale(E_thermal, CoolingRate(rho, P)) * CFL_cooling / 5.0, dt); //TEMP
-            Real dE_subcycle = 0.0;
-            for (Real t=0.0; t<dt; t+=dt_subcycle) {
-              P += dE_subcycle*(gamma - 1.0);
-              Real cooling_rate = CoolingRate(rho, P);
-              Real dP = 1e-3 * P;  //TEMP 用有限差分计算 Jacobian
-              Real jacobian = (gamma-1.0)*((-CoolingRate(rho,P+dP)) - (-cooling_rate)) / (dP); // 注意 RHS 是 - CoolingRate
-              dE_subcycle = dt_subcycle / (1 - jacobian*dt_subcycle) * (-cooling_rate);
-              dE += dE_subcycle;
-            }
-          } else {
-            throw std::invalid_argument("integrator not supported");
-          }
+          if (t_subcycle + dt_subcycle > dt) {dt_subcycle = dt - t_subcycle;}  // 限制 dt_subcycle 使得 t_subcycle 不能超过 dt，使最后一个子循环结束时 t_subcycle == dt。同时也限制了 dt_subcycle <= dt
+          dE_subcycle = Integrator(RHS, E_thermal+dE, dt_subcycle);
+          dE += dE_subcycle;
+          t_subcycle += dt_subcycle;
         }
 
-        // 只用来诊断
-        // t_cool = std::min(CoolingTimeScale(E_thermal, cooling_rate), t_cool); //TEMP
-
-        // dE = - std::min(std::abs(dE), E_thermal * 0.1);  //TEMP 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
-        // Real new_T_cgs = mu * (P - dE*(gamma-1)) / rho * punit->code_temperature_mu_cgs;
+        // dE = - std::min(std::abs(dE), E_thermal * 0.1);  // 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
 
         //TEMP 限制最低温度。但要考虑到 source term 在一个 dt 内被调用多次
-        Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1);
-        dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  
-
+        Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
+        //TODO 仔细思考这里的 Limiter
+        dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  // 这里的 dE 目前不一定是 < 0 的，因为如果低于 floor 反而会加热
 
         cons(IEN,k,j,i) += dE;
       }
     }
   }
   return;
+}
+
+// 工厂函数，根据输入的字符串返回对应的 CoolingModel 指针
+std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_model)
+{
+  if (cooling_model == "Draine_2011") {
+    return std::unique_ptr<CoolingModel>(new Draine_2011());
+  } else if (cooling_model == "model2") {
+    return std::unique_ptr<CoolingModel>(new Model2());
+  }
+  // 更多模型...
+  else {
+    throw std::invalid_argument("未定义的 CoolingModel: " + cooling_model);
+  }
+}
+
+// Drain 2011, ISM textbook, Sec 34.1, eqn 34.2 & 34.3。
+// 用于估计 SN shock cooling 的简单幂律函数。高于 10^(7.3) K 的部分是轫致辐射主导的。
+Real Draine_2011::CoolingCurve(Real T_cgs) const {
+  if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ){
+    return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(-1.18348e5/T_cgs); //TEMP 指数截断，具体的值有待调整
+  } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
+    return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
+  }
+  return 0.0;  // 默认返回值
+}
+
+Real Draine_2011::Jacobian(Real T_cgs) const {
+  const Real& dT = min_dT;
+  return CoolingFunction(T_cgs) - CoolingFunction(T_cgs - dT) / (dT);  //TODO 这里可以考虑加上缓存功能，但要配合隐式方法的调用来设计
+}
+
+Real Model2::CoolingCurve(Real T_cgs) const {
+  throw std::invalid_argument("Model2 is not implemented yet.");
+}
+
+Real Model2::Jacobian(Real T_cgs) const {
+  throw std::invalid_argument("Model2 is not implemented yet.");
 }
