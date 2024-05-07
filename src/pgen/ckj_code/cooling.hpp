@@ -1,6 +1,9 @@
 #ifndef COOLING_HPP_
 #define COOLING_HPP_
 
+// C++ headers
+#include <memory>
+
 // Athena++ headers
 #include "../../athena.hpp"
 #include "../../mesh/mesh.hpp"

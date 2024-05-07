@@ -6,6 +6,7 @@
 // 自定义函数所需的标准库导入
 #include <vector>
 #include <array>
+#include <tuple>
 
 #include <fstream>  // std::ofstream
 #include <iostream> // std::cout, std::endl
