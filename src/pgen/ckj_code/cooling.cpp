@@ -14,7 +14,7 @@ Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) { 
 
   cooling_model = pin->GetOrAddString("cooling", "cooling_model", "none");
   cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
-  if (!cooling_flag) return;  // 如果没有开启 cooling，则不继续初始化
+  if (!cooling_flag) {return;}  // 如果没有开启 cooling，则不继续初始化
   
   CFL_cooling = pin->GetOrAddReal("cooling", "CFL_cooling", 1.0); 
   if (CFL_cooling <= 0.0) {throw std::invalid_argument("CFL_cooling must be positive!");}
@@ -23,8 +23,8 @@ Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) { 
   integrator = pin->GetOrAddString("cooling", "integrator", "Euler");
 
 
-  // 设定元素丰度 //* 目前暂时放在 Cooling 类的成员变量中，但如果组分要演化，则再考虑更改。
-  X_H = 0.7, X_Metal = 0.01295;  // H, He, Metal 元素的质量分数
+  // 设定元素丰度（H, He, Metal 的质量分数） //* 目前暂时放在 Cooling 类的成员变量中，但如果组分要演化，则再考虑更改。
+  X_H = 0.7, X_Metal = 0.01295;  //? 这是什么丰度？太阳的？
   // X_H = 1.0, X_Metal = 0.0;   // 纯 H
   X_He = 1.0 - X_H - X_Metal;
 
@@ -53,7 +53,7 @@ const Real Cooling::CoolingFunction(Real T_cgs) {
 
 
 // 计算 Cooling Rate (in code unit)，即 d(能量密度) / dt。//* 注意：这里 Cooling Rate 是正数！
-const Real Cooling::CoolingRate(const Real &rho, const Real &P) { //TODO 这里有问题：使用 RK4 的时候会需要多次传入 T ？
+Real Cooling::CoolingRate(const Real &rho, const Real &P) const { //TODO 这里有问题：使用 RK4 的时候会需要多次传入 T ？
   Real T_cgs = mu * P / rho * punit->code_temperature_mu_cgs;
 
   // 计算数密度 n
@@ -69,14 +69,16 @@ const Real Cooling::CoolingRate(const Real &rho, const Real &P) { //TODO 这里�
 }
 
 
-const Real Cooling::CoolingTimeScale(const Real &E_thermal, const Real &cooling_rate) {
-  if (cooling_rate == 0.0) return std::numeric_limits<Real>::max();  // 当 cooling_rate 为 0 时，冷却时标设为一个很大的数。
-  //? 要处理 E_thermal <= 0 的情况吗？
-  return E_thermal / cooling_rate;
+// 计算 Cooling 时标（不乘额外系数）。返回值一定大于 0 （如果 < 0 则返回正无穷大，从而不对 TimeStep 做任何限制）
+Real Cooling::CoolingTimeScale(const Real &E_thermal, const Real &cooling_rate) const {
+  if (cooling_rate == 0.0) return std::numeric_limits<Real>::max();  // 当 cooling_rate 为 0 时，冷却时标设为一个很大的数，避免除 0 错误
+  Real cooling_timescale = E_thermal / cooling_rate;
+  if (cooling_timescale <= 0.0) {return std::numeric_limits<Real>::max();}  // 如果得到的 cooling_timescale <= 0，则返回一个很大的数，从而保证返回值总是 > 0 的
+  return cooling_timescale;
 }
 
 
-const Real Cooling::CoolingTimeStep(MeshBlock *pmb) {
+Real Cooling::CoolingTimeStep(MeshBlock *pmb) const {
   Real cooling_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数
   for (int k=pmb->ks; k<=pmb->ke; ++k) {
     for (int j=pmb->js; j<=pmb->je; ++j) {

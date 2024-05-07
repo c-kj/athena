@@ -20,10 +20,10 @@
 #include "ckj_code/cooling.hpp"
 
 
+//BUG 这些全局变量并没有使用 extern 来声明，如果被多个源文件包含的话，会重复定义，违反 ODR，编译也会报错。目前这些全局变量只在 turb+BH_accretion.cpp 中使用，暂时没出问题。
+//TODO 将这些全局变量大多数改造为类的成员变量。剩余的用 extern 声明，然后在 turb+BH_accretion.cpp 中定义。
 // 声明自定义的全局变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
-// 使用 namespace 创建一个命名空间 my_vars，然后再 using namespace 导入它
-// 这样做的好处是，所有自定义的变量都放在一起，在大纲层级中更加清晰
 
 Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
 

@@ -12,30 +12,30 @@ configure = --prob turb+BH_accretion -fft --fftw_path="/opt/homebrew/opt/fftw" -
 problem_id = TEMPLATE    # 输出文件的 basename。常用的有: Bondi, SN,
 
 <output1>
-file_type  = hst         # History data dump
-dcycle     = 1           # 每个步长都输出。hst 文件应该不会太大，所以可以很密集。
+file_type  = hst              # History data dump
+dcycle     = 1                # 每个步长都输出。hst 文件应该不会太大，所以可以很密集。
 
 <output2>
 file_type  = hdf5             # HDF5 Output 是主要的输出数据
-dt         = 0.01             # time increment between outputs  # dt 适当大一点，避免输出过多
+dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
 id         = prim             # output id
 
 <output3>
 file_type  = rst              # Restart File，用于断点续算
-dt         = inf              # time increment between outputs  # 设为 inf，则只输出初始和最终的 Restart File
+dt         = inf              # 设为 inf，则只输出初始和最终的 Restart File
 
 # 以下是一些 slice 和 sum 的 output。体积小，因而后处理更快、可以输出更频繁。还可添加更多 outputs。
 <output4>
-file_type  = hdf5             # HDF5 Output 是主要的输出数据
-dt         = 0.01             # time increment between outputs  # dt 适当大一点，避免输出过多
+file_type  = hdf5             # slice 输出
+dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
 id         = x3_slice_0e0     # output id
 x3_slice   = 0.0              # slice position in X3
 
 <output5>
-file_type  = hdf5             # HDF5 Output 是主要的输出数据
-dt         = 0.01             # time increment between outputs  # dt 适当大一点，避免输出过多
+file_type  = hdf5             # sum 输出
+dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
 id         = x3_sum           # output id
 x3_sum     = true             # sum over X3
@@ -45,7 +45,7 @@ x3_sum     = true             # sum over X3
 cfl_number = 0.3         # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim       = -1          # cycle limit # -1 代表无穷大
 tlim       = 2.          # time limit  # 总时间要比 t_freefall 更长
-integrator  = vl2        # time integration algorithm
+integrator  = rk2        # time integration algorithm
 xorder      = 2          # order of spatial reconstruction
 ncycle_out  = 1          # interval for stdout summary info
 

@@ -20,22 +20,22 @@ struct Region {
 
 
 struct Ball : public Region {
-    Point center;
-    Real radius;
+  Point center;
+  Real radius;
 
-    Ball(const Point &center, const Real radius, const int dim);
+  Ball(const Point &center, const Real radius, const int dim);
 
-    bool contains(const Point &point) const override;
+  bool contains(const Point &point) const override;
 };
 
 struct Heart : public Region {
-    Point center;
-    Real size;
-    Real a, b;
+  Point center;
+  Real size;
+  Real a, b;
 
-    Heart(const Point &center, const Real size, const Real a=3.3, const Real b=0.75);
+  Heart(const Point &center, const Real size, const Real a=3.3, const Real b=0.75);
 
-    bool contains(const Point &point) const override;
+  bool contains(const Point &point) const override;
 };
 
 

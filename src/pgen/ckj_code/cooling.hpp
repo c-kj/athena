@@ -16,10 +16,10 @@ struct Cooling {
   // Real Integrator();
   // void Limiter();
 
-  const Real CoolingRate(const Real &rho, const Real &P);
+  Real CoolingRate(const Real &rho, const Real &P) const;
 
-  const Real CoolingTimeScale(const Real &rho, const Real &P);
-  const Real CoolingTimeStep(MeshBlock *pmb);
+  Real CoolingTimeScale(const Real &rho, const Real &P) const;
+  Real CoolingTimeStep(MeshBlock *pmb) const;
 
   void CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
                          const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
