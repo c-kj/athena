@@ -1,0 +1,3642 @@
+[
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_base.o",
+      "src/bvals/bvals_base.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/bvals_base.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_base.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/main.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/main.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/globals.o",
+      "src/globals.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/globals.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/globals.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals.o",
+      "src/bvals/bvals.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/bvals.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_refine.o",
+      "src/bvals/bvals_refine.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/bvals_refine.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_refine.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/parameter_input.o",
+      "src/parameter_input.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/parameter_input.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/parameter_input.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_refine_gravity.o",
+      "src/bvals/bvals_refine_gravity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/bvals_refine_gravity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_refine_gravity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_var.o",
+      "src/bvals/bvals_var.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/bvals_var.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_var.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_cc.o",
+      "src/bvals/cc/bvals_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/bvals_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_cc.o",
+      "src/bvals/cc/bvals_shear_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/bvals_shear_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_flux.o",
+      "src/bvals/cc/bvals_shear_flux.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/bvals_shear_flux.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_flux.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/flux_correction_cc.o",
+      "src/bvals/cc/flux_correction_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/flux_correction_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/flux_correction_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/outflow_cc.o",
+      "src/bvals/cc/outflow_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/outflow_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/outflow_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/polarwedge_cc.o",
+      "src/bvals/cc/polarwedge_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/polarwedge_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/polarwedge_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_hydro.o",
+      "src/bvals/cc/hydro/bvals_hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/hydro/bvals_hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/reflect_cc.o",
+      "src/bvals/cc/reflect_cc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/reflect_cc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/reflect_cc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/flux_correction_hydro.o",
+      "src/bvals/cc/hydro/flux_correction_hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/hydro/flux_correction_hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/flux_correction_hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_hydro.o",
+      "src/bvals/cc/hydro/bvals_shear_hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/hydro/bvals_shear_hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/reflect_hydro.o",
+      "src/bvals/cc/hydro/reflect_hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/hydro/reflect_hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/reflect_hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_mg.o",
+      "src/bvals/cc/mg/bvals_mg.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/mg/bvals_mg.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_mg.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_rad.o",
+      "src/bvals/cc/nr_radiation/bvals_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/bvals_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_rad.o",
+      "src/bvals/cc/nr_radiation/bvals_shear_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/bvals_shear_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_rad_flux.o",
+      "src/bvals/cc/nr_radiation/bvals_shear_rad_flux.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/bvals_shear_rad_flux.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_rad_flux.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/flux_correction_radiation.o",
+      "src/bvals/cc/nr_radiation/flux_correction_radiation.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/flux_correction_radiation.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/flux_correction_radiation.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/outflow_rad.o",
+      "src/bvals/cc/nr_radiation/outflow_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/outflow_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/outflow_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/polarwedge_rad.o",
+      "src/bvals/cc/nr_radiation/polarwedge_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/polarwedge_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/polarwedge_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rotate_rad.o",
+      "src/bvals/cc/nr_radiation/rotate_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/rotate_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rotate_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/reflect_rad.o",
+      "src/bvals/cc/nr_radiation/reflect_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/reflect_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/reflect_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/vacuum_rad.o",
+      "src/bvals/cc/nr_radiation/vacuum_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/cc/nr_radiation/vacuum_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/vacuum_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_fc.o",
+      "src/bvals/fc/bvals_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/bvals_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_emf.o",
+      "src/bvals/fc/bvals_shear_emf.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/bvals_shear_emf.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_emf.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_shear_fc.o",
+      "src/bvals/fc/bvals_shear_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/bvals_shear_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_shear_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/flux_correction_fc.o",
+      "src/bvals/fc/flux_correction_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/flux_correction_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/flux_correction_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/outflow_fc.o",
+      "src/bvals/fc/outflow_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/outflow_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/outflow_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/polarwedge_fc.o",
+      "src/bvals/fc/polarwedge_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/polarwedge_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/polarwedge_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/reflect_fc.o",
+      "src/bvals/fc/reflect_fc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/fc/reflect_fc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/reflect_fc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_orbital.o",
+      "src/bvals/orbital/bvals_orbital.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/orbital/bvals_orbital.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_orbital.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/bvals_sixray.o",
+      "src/bvals/sixray/bvals_sixray.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/sixray/bvals_sixray.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/bvals_sixray.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/boundary_flag.o",
+      "src/bvals/utils/boundary_flag.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/utils/boundary_flag.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/boundary_flag.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/check_polar.o",
+      "src/bvals/utils/check_polar.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/bvals/utils/check_polar.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/check_polar.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cartesian.o",
+      "src/coordinates/cartesian.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/cartesian.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cartesian.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/coordinates.o",
+      "src/coordinates/coordinates.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/coordinates.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/coordinates.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cylindrical.o",
+      "src/coordinates/cylindrical.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/cylindrical.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cylindrical.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/gr_user.o",
+      "src/coordinates/gr_user.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/gr_user.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/gr_user.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/kerr-schild.o",
+      "src/coordinates/kerr-schild.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/kerr-schild.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/kerr-schild.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/minkowski.o",
+      "src/coordinates/minkowski.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/minkowski.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/minkowski.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/schwarzschild.o",
+      "src/coordinates/schwarzschild.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/schwarzschild.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/schwarzschild.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/spherical_polar.o",
+      "src/coordinates/spherical_polar.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/coordinates/spherical_polar.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/spherical_polar.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/noop.o",
+      "src/eos/general/noop.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/eos/general/noop.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/noop.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/adiabatic_hydro.o",
+      "src/eos/adiabatic_hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/eos/adiabatic_hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/adiabatic_hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/eos_high_order.o",
+      "src/eos/eos_high_order.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/eos/eos_high_order.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/eos_high_order.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/eos_scalars.o",
+      "src/eos/eos_scalars.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/eos/eos_scalars.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/eos_scalars.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/network_wrapper.o",
+      "src/chemistry/network_wrapper.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/network_wrapper.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/network_wrapper.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/chemistry_utils.o",
+      "src/chemistry/utils/chemistry_utils.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/utils/chemistry_utils.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/chemistry_utils.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/kida_reaction.o",
+      "src/chemistry/utils/kida_reaction.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/utils/kida_reaction.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/kida_reaction.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/kida_species.o",
+      "src/chemistry/utils/kida_species.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/utils/kida_species.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/kida_species.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/shielding.o",
+      "src/chemistry/utils/shielding.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/utils/shielding.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/shielding.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/thermo.o",
+      "src/chemistry/utils/thermo.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/utils/thermo.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/thermo.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/forward_euler.o",
+      "src/chemistry/forward_euler.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chemistry/forward_euler.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/forward_euler.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/chem_rad.o",
+      "src/chem_rad/chem_rad.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chem_rad/chem_rad.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/chem_rad.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/const.o",
+      "src/chem_rad/integrators/const.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/chem_rad/integrators/const.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/const.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/athena_fft.o",
+      "src/fft/athena_fft.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/fft/athena_fft.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/athena_fft.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/fft_driver.o",
+      "src/fft/fft_driver.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/fft/fft_driver.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/fft_driver.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/turbulence.o",
+      "src/fft/turbulence.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/fft/turbulence.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/turbulence.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/calculate_corner_e.o",
+      "src/field/calculate_corner_e.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/field/calculate_corner_e.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/calculate_corner_e.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/ct.o",
+      "src/field/ct.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/field/ct.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/ct.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/field.o",
+      "src/field/field.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/field/field.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/field.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/diffusivity.o",
+      "src/field/field_diffusion/diffusivity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/field/field_diffusion/diffusivity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/diffusivity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/field_diffusion.o",
+      "src/field/field_diffusion/field_diffusion.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/field/field_diffusion/field_diffusion.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/field_diffusion.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/fft_gravity.o",
+      "src/gravity/fft_gravity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/gravity/fft_gravity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/fft_gravity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/gravity.o",
+      "src/gravity/gravity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/gravity/gravity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/gravity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mg_gravity.o",
+      "src/gravity/mg_gravity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/gravity/mg_gravity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mg_gravity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/add_flux_divergence.o",
+      "src/hydro/add_flux_divergence.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/add_flux_divergence.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/add_flux_divergence.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/calculate_fluxes.o",
+      "src/hydro/calculate_fluxes.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/calculate_fluxes.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/calculate_fluxes.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/calculate_velocity_differences.o",
+      "src/hydro/calculate_velocity_differences.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/calculate_velocity_differences.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/calculate_velocity_differences.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/hydro.o",
+      "src/hydro/hydro.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/hydro.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/hydro.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/new_blockdt.o",
+      "src/hydro/new_blockdt.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/new_blockdt.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/new_blockdt.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/constant_acc.o",
+      "src/hydro/srcterms/constant_acc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/constant_acc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/constant_acc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/hydro_srcterms.o",
+      "src/hydro/srcterms/hydro_srcterms.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/hydro_srcterms.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/hydro_srcterms.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/orbital_advection_srcterms.o",
+      "src/hydro/srcterms/orbital_advection_srcterms.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/orbital_advection_srcterms.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/orbital_advection_srcterms.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/pointmass.o",
+      "src/hydro/srcterms/pointmass.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/pointmass.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/pointmass.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rotating_system_srcterms.o",
+      "src/hydro/srcterms/rotating_system_srcterms.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/rotating_system_srcterms.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rotating_system_srcterms.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/self_gravity.o",
+      "src/hydro/srcterms/self_gravity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/self_gravity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/self_gravity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/shearing_box.o",
+      "src/hydro/srcterms/shearing_box.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/srcterms/shearing_box.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/shearing_box.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/conduction.o",
+      "src/hydro/hydro_diffusion/conduction.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/hydro_diffusion/conduction.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/conduction.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/hydro_diffusion.o",
+      "src/hydro/hydro_diffusion/hydro_diffusion.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/hydro_diffusion/hydro_diffusion.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/hydro_diffusion.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/viscosity.o",
+      "src/hydro/hydro_diffusion/viscosity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/hydro_diffusion/viscosity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/viscosity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/angulargrid.o",
+      "src/nr_radiation/angulargrid.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/angulargrid.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/angulargrid.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/frequencygrid.o",
+      "src/nr_radiation/frequencygrid.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/frequencygrid.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/frequencygrid.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/get_moments.o",
+      "src/nr_radiation/get_moments.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/get_moments.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/get_moments.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/radiation.o",
+      "src/nr_radiation/radiation.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/radiation.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/radiation.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/frame_transform.o",
+      "src/nr_radiation/integrators/frame_transform.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/frame_transform.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/frame_transform.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/multi_group.o",
+      "src/nr_radiation/integrators/multi_group.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/multi_group.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/multi_group.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rad_integrators.o",
+      "src/nr_radiation/integrators/rad_integrators.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/rad_integrators.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rad_integrators.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rad_source.o",
+      "src/nr_radiation/integrators/rad_source.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/rad_source.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rad_source.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rad_transport.o",
+      "src/nr_radiation/integrators/rad_transport.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/rad_transport.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rad_transport.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/absorption_scattering.o",
+      "src/nr_radiation/integrators/srcterms/absorption_scattering.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/srcterms/absorption_scattering.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/absorption_scattering.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/compton.o",
+      "src/nr_radiation/integrators/srcterms/compton.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/srcterms/compton.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/compton.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/multigroup_abs_sca.o",
+      "src/nr_radiation/integrators/srcterms/multigroup_abs_sca.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/integrators/srcterms/multigroup_abs_sca.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/multigroup_abs_sca.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/implicit_angular_flux.o",
+      "src/nr_radiation/implicit/implicit_angular_flux.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/implicit/implicit_angular_flux.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/implicit_angular_flux.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/implicit_first_order.o",
+      "src/nr_radiation/implicit/implicit_first_order.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/implicit/implicit_first_order.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/implicit_first_order.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/radiation_implicit.o",
+      "src/nr_radiation/implicit/radiation_implicit.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/implicit/radiation_implicit.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/radiation_implicit.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rad_iteration.o",
+      "src/nr_radiation/implicit/rad_iteration.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/nr_radiation/implicit/rad_iteration.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rad_iteration.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cr.o",
+      "src/cr/cr.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/cr/cr.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cr.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cr_flux.o",
+      "src/cr/integrators/cr_flux.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/cr/integrators/cr_flux.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cr_flux.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cr_integrators.o",
+      "src/cr/integrators/cr_integrators.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/cr/integrators/cr_integrators.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cr_integrators.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cr_source.o",
+      "src/cr/integrators/cr_source.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/cr/integrators/cr_source.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cr_source.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cr_transport.o",
+      "src/cr/integrators/cr_transport.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/cr/integrators/cr_transport.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cr_transport.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/hllc.o",
+      "src/hydro/rsolvers/hydro/hllc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/hydro/rsolvers/hydro/hllc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/hllc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/ascii_table_reader.o",
+      "src/inputs/ascii_table_reader.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/inputs/ascii_table_reader.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/ascii_table_reader.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/hdf5_reader.o",
+      "src/inputs/hdf5_reader.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/inputs/hdf5_reader.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/hdf5_reader.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/amr_loadbalance.o",
+      "src/mesh/amr_loadbalance.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/amr_loadbalance.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/amr_loadbalance.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mesh.o",
+      "src/mesh/mesh.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/mesh.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mesh.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mesh_refinement.o",
+      "src/mesh/mesh_refinement.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/mesh_refinement.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mesh_refinement.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/meshblock.o",
+      "src/mesh/meshblock.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/meshblock.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/meshblock.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/meshblock_tree.o",
+      "src/mesh/meshblock_tree.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/meshblock_tree.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/meshblock_tree.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/weighted_ave.o",
+      "src/mesh/weighted_ave.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/mesh/weighted_ave.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/weighted_ave.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mgbval_multipole.o",
+      "src/multigrid/mgbval_multipole.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/mgbval_multipole.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mgbval_multipole.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mgbval_periodic.o",
+      "src/multigrid/mgbval_periodic.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/mgbval_periodic.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mgbval_periodic.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mgbval_zerofixed.o",
+      "src/multigrid/mgbval_zerofixed.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/mgbval_zerofixed.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mgbval_zerofixed.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mgbval_zerograd.o",
+      "src/multigrid/mgbval_zerograd.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/mgbval_zerograd.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mgbval_zerograd.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/multigrid.o",
+      "src/multigrid/multigrid.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/multigrid.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/multigrid.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/multigrid_driver.o",
+      "src/multigrid/multigrid_driver.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/multigrid/multigrid_driver.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/multigrid_driver.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/calculate_orbital_advection.o",
+      "src/orbital_advection/calculate_orbital_advection.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/calculate_orbital_advection.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/calculate_orbital_advection.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/default_orbital_velocity.o",
+      "src/orbital_advection/default_orbital_velocity.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/default_orbital_velocity.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/default_orbital_velocity.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/orbital_advection.o",
+      "src/orbital_advection/orbital_advection.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/orbital_advection.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/orbital_advection.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/orbital_remapping.o",
+      "src/orbital_advection/orbital_remapping.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/orbital_remapping.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/orbital_remapping.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/orbital_system_conversion.o",
+      "src/orbital_advection/orbital_system_conversion.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/orbital_system_conversion.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/orbital_system_conversion.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/set_orbital_advection.o",
+      "src/orbital_advection/set_orbital_advection.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/orbital_advection/set_orbital_advection.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/set_orbital_advection.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/athena_hdf5.o",
+      "src/outputs/athena_hdf5.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/athena_hdf5.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/athena_hdf5.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/formatted_table.o",
+      "src/outputs/formatted_table.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/formatted_table.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/formatted_table.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/history.o",
+      "src/outputs/history.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/history.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/history.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/io_wrapper.o",
+      "src/outputs/io_wrapper.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/io_wrapper.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/io_wrapper.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/outputs.o",
+      "src/outputs/outputs.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/outputs.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/outputs.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/restart.o",
+      "src/outputs/restart.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/restart.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/restart.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/vtk.o",
+      "src/outputs/vtk.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/outputs/vtk.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/vtk.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/default_pgen.o",
+      "src/pgen/default_pgen.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/default_pgen.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/default_pgen.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/turb+BH_accretion.o",
+      "src/pgen/turb+BH_accretion.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/turb+BH_accretion.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/turb+BH_accretion.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/cooling.o",
+      "src/pgen/ckj_code/cooling.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/ckj_code/cooling.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/cooling.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/refinement_condition.o",
+      "src/pgen/ckj_code/refinement_condition.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/ckj_code/refinement_condition.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/refinement_condition.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/region.o",
+      "src/pgen/ckj_code/region.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/ckj_code/region.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/region.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/supernova.o",
+      "src/pgen/ckj_code/supernova.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/ckj_code/supernova.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/supernova.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/utils.o",
+      "src/pgen/ckj_code/utils.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/pgen/ckj_code/utils.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/utils.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/characteristic.o",
+      "src/reconstruct/characteristic.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/characteristic.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/characteristic.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/dc.o",
+      "src/reconstruct/dc.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/dc.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/dc.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/dc_simple.o",
+      "src/reconstruct/dc_simple.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/dc_simple.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/dc_simple.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/plm.o",
+      "src/reconstruct/plm.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/plm.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/plm.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/plm_simple.o",
+      "src/reconstruct/plm_simple.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/plm_simple.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/plm_simple.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/ppm.o",
+      "src/reconstruct/ppm.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/ppm.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/ppm.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/ppm_simple.o",
+      "src/reconstruct/ppm_simple.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/ppm_simple.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/ppm_simple.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/reconstruction.o",
+      "src/reconstruct/reconstruction.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/reconstruct/reconstruction.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/reconstruction.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/add_scalar_flux_divergence.o",
+      "src/scalars/add_scalar_flux_divergence.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/scalars/add_scalar_flux_divergence.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/add_scalar_flux_divergence.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/scalar_diffusion.o",
+      "src/scalars/scalar_diffusion.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/scalars/scalar_diffusion.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/scalar_diffusion.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/calculate_scalar_fluxes.o",
+      "src/scalars/calculate_scalar_fluxes.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/scalars/calculate_scalar_fluxes.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/calculate_scalar_fluxes.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/scalars.o",
+      "src/scalars/scalars.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/scalars/scalars.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/scalars.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/chem_rad_task_list.o",
+      "src/task_list/chem_rad_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/chem_rad_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/chem_rad_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/grav_task_list.o",
+      "src/task_list/grav_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/grav_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/grav_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/im_rad_compt_task_list.o",
+      "src/task_list/im_rad_compt_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/im_rad_compt_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/im_rad_compt_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/im_rad_task_list.o",
+      "src/task_list/im_rad_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/im_rad_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/im_rad_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/im_radhydro_task_list.o",
+      "src/task_list/im_radhydro_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/im_radhydro_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/im_radhydro_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/im_radit_task_list.o",
+      "src/task_list/im_radit_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/im_radit_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/im_radit_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/mg_task_list.o",
+      "src/task_list/mg_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/mg_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/mg_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/sts_task_list.o",
+      "src/task_list/sts_task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/sts_task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/sts_task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/task_id.o",
+      "src/task_list/task_id.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/task_id.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/task_id.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/task_list.o",
+      "src/task_list/task_list.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/task_list.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/task_list.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/time_integrator.o",
+      "src/task_list/time_integrator.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/task_list/time_integrator.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/time_integrator.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/buffer_utils.o",
+      "src/utils/buffer_utils.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/buffer_utils.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/buffer_utils.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/change_rundir.o",
+      "src/utils/change_rundir.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/change_rundir.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/change_rundir.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/fourth_polynomial_root.o",
+      "src/utils/fourth_polynomial_root.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/fourth_polynomial_root.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/fourth_polynomial_root.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/eos_table_class.o",
+      "src/utils/eos_table_class.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/eos_table_class.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/eos_table_class.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/gauleg.o",
+      "src/utils/gauleg.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/gauleg.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/gauleg.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/gl_quadrature.o",
+      "src/utils/gl_quadrature.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/gl_quadrature.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/gl_quadrature.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/interp.o",
+      "src/utils/interp.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/interp.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/interp.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/interp_table.o",
+      "src/utils/interp_table.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/interp_table.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/interp_table.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/matrix_mult.o",
+      "src/utils/matrix_mult.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/matrix_mult.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/matrix_mult.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/permutation.o",
+      "src/utils/permutation.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/permutation.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/permutation.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/ran2.o",
+      "src/utils/ran2.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/ran2.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/ran2.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/rotate_vectors.o",
+      "src/utils/rotate_vectors.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/rotate_vectors.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/rotate_vectors.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/show_config.o",
+      "src/utils/show_config.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/show_config.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/show_config.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/signal_handler.o",
+      "src/utils/signal_handler.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/signal_handler.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/signal_handler.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/string_utils.o",
+      "src/utils/string_utils.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/utils/string_utils.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/string_utils.o"
+  },
+  {
+    "arguments": [
+      "/opt/homebrew/opt/llvm/bin/clang++",
+      "-I/opt/homebrew/opt/fftw/include",
+      "-I/opt/homebrew/opt/hdf5/include",
+      "-O0",
+      "--std=c++11",
+      "-g",
+      "-fopenmp",
+      "-O3",
+      "-march=native",
+      "-c",
+      "-o",
+      "obj/units.o",
+      "src/units/units.cpp"
+    ],
+    "directory": "/Users/chenkejian/Codes/athena",
+    "file": "/Users/chenkejian/Codes/athena/src/units/units.cpp",
+    "output": "/Users/chenkejian/Codes/athena/obj/units.o"
+  }
+]

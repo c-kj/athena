@@ -12,10 +12,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/bin/athena",
-            "args": ["-d", "output", "-i", "test_units.athinput"],  //CHANGEME 修改 .athinput 文件名
+            "args": ["-d", "output", "-i", "test_cooling.athinput"],  //CHANGEME 修改 .athinput 文件名
             "stopAtEntry": false,
             // "cwd": "${fileDirname}",
-            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/test_units/r=0.01_cooling", //CHANGEME 修改路径 //? 也许可以有更好的方法？ 
+            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/cooling/r=2e-1_uniform128_3", //CHANGEME 修改路径 //? 也许可以有更好的方法？ 
             // "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
             "environment": [],
             "externalConsole": false,
