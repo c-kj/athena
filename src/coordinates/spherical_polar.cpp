@@ -131,21 +131,62 @@ SphericalPolar::SphericalPolar(MeshBlock *pmb, ParameterInput *pin, bool flag)
       x2s1(jl) = x2s3(jl) = x2v(jl);
     } else {
       for (int j=jl-ng; j<=ju+ng; ++j) {
-        x2s1(j) = x2s3(j) = x2v(j);
+        x2s1(j) = (std::sin(x2f(j+1)) - x2f(j+1)*std::cos(x2f(j+1)) - std::sin(x2f(j))
+                  + x2f(j)*std::cos(x2f(j)))/(std::cos(x2f(j)) - std::cos(x2f(j+1)));
+        x2s3(j) = 0.5*(x2f(j+1) + x2f(j));
       }
     }
     if (pmb->block_size.nx3 == 1) {
       x3s1(kl) = x3s2(kl) = x3v(kl);
     } else {
       for (int k=kl-ng; k<=ku+ng; ++k) {
-        x3s1(k) = x3s2(k) = x3v(k);
+        x3s1(k) = x3s2(k) = 0.5*(x3f(k+1) + x3f(k));
       }
     }
   }
 
   // Allocate memory for internal scratch arrays to store partial calculations
-  // (note this is skipped if object is for coarse mesh with AMR)
-  if (!coarse_flag) {
+  if (coarse_flag) {
+    coord_area1_i_.NewAthenaArray(nc1+1);
+    coord_area2_i_.NewAthenaArray(nc1);
+    coord_area3_i_.NewAthenaArray(nc1);
+    coord_area1_j_.NewAthenaArray(nc2);
+    coord_area2_j_.NewAthenaArray(nc2+1);
+#pragma omp simd
+    for (int i=il-ng; i<=iu+ng; ++i) {
+      Real rm = x1f(i  );
+      Real rp = x1f(i+1);
+      // R^2
+      coord_area1_i_(i) = rm*rm;
+      // 0.5*(R_{i+1}^2 - R_{i}^2)
+      coord_area2_i_(i) = 0.5*(rp*rp - rm*rm);
+      // 0.5*(R_{i+1}^2 - R_{i}^2)
+      coord_area3_i_(i) = coord_area2_i_(i);
+      // dV = (R_{i+1}^3 - R_{i}^3)/3
+    }
+    coord_area1_i_(iu+ng+1) = x1f(iu+ng+1)*x1f(iu+ng+1);
+    if (pmb->block_size.nx2 > 1) {
+#pragma omp simd
+      for (int j=jl-ng; j<=ju+ng; ++j) {
+        Real sm = std::abs(std::sin(x2f(j  )));
+        Real cm = std::cos(x2f(j  ));
+        Real cp = std::cos(x2f(j+1));
+        // d(sin theta) = d(-cos theta)
+        coord_area1_j_(j) = std::abs(cm - cp);
+        // sin theta
+        coord_area2_j_(j) = sm;
+      }
+      coord_area2_j_(ju+ng+1) = std::abs(sin(x2f(ju+ng+1)));
+    } else {
+      Real sm = std::abs(std::sin(x2f(jl  )));
+      Real sp = std::abs(std::sin(x2f(jl+1)));
+      Real cm = std::cos(x2f(jl  ));
+      Real cp = std::cos(x2f(jl+1));
+      coord_area1_j_(jl) = std::abs(cm - cp);
+      coord_area2_j_(jl) = sm;
+      coord_area2_j_(jl+1) = sp;
+    }
+  } else {
     coord_area1_i_.NewAthenaArray(nc1+1);
     coord_area2_i_.NewAthenaArray(nc1);
     coord_area3_i_.NewAthenaArray(nc1);
@@ -717,7 +758,7 @@ void SphericalPolar::ConvertAngle(MeshBlock *pmb, const int nang,
 // this needs to go throug all the nzeta
 void SphericalPolar::GetGeometryZeta(NRRadiation *prad, const int k, const int j,
                                      const int i, AthenaArray<Real> &g_zeta) {
-  int &nzeta = prad->nzeta;
+  const int& nzeta = prad->nzeta;
   Real radius = x1v(i);
   for(int n=0; n<nzeta*2+1; ++n) {
     g_zeta(n) = 1./radius;
@@ -729,11 +770,11 @@ void SphericalPolar::GetGeometryZeta(NRRadiation *prad, const int k, const int j
 void SphericalPolar::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
                                     const int i, const int n_zeta,
                                     AthenaArray<Real> &g_psi) {
-  int &npsi = prad->npsi;
+  const int &npsi = prad->npsi;
   Real radius = x1v(i);
   Real sinzeta_v = 1.0 - prad->coszeta_v(n_zeta) * prad->coszeta_v(n_zeta);
   sinzeta_v = std::sqrt(sinzeta_v);
-  Real &cottheta = prad->cot_theta(j);
+  const Real &cottheta = prad->cot_theta(j);
   if (npsi == 1) {
     for(int n=0; n<2*npsi+1; ++n) {
       g_psi(n) = 0.0;
@@ -748,10 +789,10 @@ void SphericalPolar::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
 
 void SphericalPolar::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
                         const int i, AthenaArray<Real> &g_psi) {
-  int &npsi = prad->npsi;
+  const int& npsi = prad->npsi;
   Real radius = x1v(i);
 
-  Real &cottheta = prad->cot_theta(j);
+  const Real &cottheta = prad->cot_theta(j);
   if (npsi == 1) {
     for(int n=0; n<2*npsi+1; ++n) {
       g_psi(n) = 0.0;
