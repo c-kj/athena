@@ -214,6 +214,9 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  // 这里的 dE 目前不一定是 < 0 的，因为如果低于 floor 反而会加热
 
         cons(IEN,k,j,i) += dE;
+
+        pmb->user_out_var(I_cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中  //TEMP
+        // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
       }
     }
   }

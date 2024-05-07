@@ -18,7 +18,7 @@ dcycle     = 1                # 每个步长都输出。hst 文件应该不会�
 <output2>
 file_type  = hdf5             # HDF5 Output 是主要的输出数据
 dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
+variable   = prim,uov         # 只输出主变量 prim 和 uov，cons 变量由后处理计算，减小输出体积。注意用 ',' 分隔，不能有空格！
 id         = prim             # output id
 
 <output3>
@@ -29,14 +29,14 @@ dt         = inf              # 设为 inf，则只输出初始和最终的 Rest
 <output4>
 file_type  = hdf5             # slice 输出
 dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
+variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id         = x3_slice_0e0     # output id
 x3_slice   = 0.0              # slice position in X3
 
 <output5>
 file_type  = hdf5             # sum 输出
 dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim             # variables to be output  # 只输出主变量 prim，cons 变量由后处理计算，减小输出体积
+variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id         = x3_sum           # output id
 x3_sum     = true             # sum over X3
 

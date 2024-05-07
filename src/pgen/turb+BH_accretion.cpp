@@ -47,6 +47,7 @@
 #include "ckj_code/refinement_condition.hpp"
 #include "ckj_code/supernova.hpp"
 #include "ckj_code/cooling.hpp"
+#include "ckj_code/my_outputs.hpp"
 
 
 Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
@@ -337,8 +338,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollUserHistoryOutput(2, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
 
   // Print unit 相关信息
-  punit->PrintCodeUnits();
-  punit->PrintConstantsInCodeUnits();
+  if (Globals::my_rank == 0) {
+    punit->PrintCodeUnits();
+    punit->PrintConstantsInCodeUnits();
+  }
 
   return;
 }
@@ -347,6 +350,12 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 // 函数用途：初始化每个 MeshBlock 上的局部变量（包括数组数据）
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
+  // 设定 uov
+  AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
+  //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。
+  SetUserOutputVariableName(I_cooling_rate, "_cooling_rate");
+
+
   return;
 }
 
@@ -503,6 +512,17 @@ void Mesh::UserWorkInLoop() {
 // 调用时机：每个将要输出 output 的时间步的末尾。//? 和 Mesh::UserWorkInLoop 谁先？
 // 函数用途：计算用户定义的输出变量
 void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
+  // 计算 uov
+  for(int k=ks; k<=ke; k++) {
+    for(int j=js; j<=je; j++) {
+      for(int i=is; i<=ie; i++) {
+        // user_out_var(I_test,k,j,i) = phydro->w(IPR,k,j,i)/phydro->w(IDN,k,j,i);
+      }
+    }
+  }
+
+
+  // 自定义一些实时输出
   if (gid == 0){
     // 自定义的 print 信息： 用 ✅ 标记是否在这一步进行了文件 Output
     std::string spaces = std::string(66, ' '); // 用于跳到 Athena++ 原本的输出的末尾
