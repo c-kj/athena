@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Athena++",
+            "name": "Athena++ Mac",
             "includePath": [
                 "${workspaceFolder}/**",
                 "/opt/homebrew/opt/fftw/include",
@@ -16,7 +16,28 @@
             "intelliSenseMode": "macos-clang-arm64",
             "compilerPath": "/opt/homebrew/opt/llvm/bin/clang++",
             "compilerArgs": [
-                "-O3"
+                "-g",
+                "-O3",
+                "-march=native"
+            ]
+        },
+        {
+            "name": "Athena++ wm2",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/lustre/software/oneapi/2023.0/mpi/2021.8.0/include",
+                "/lustre/software/fftw/3.3.10/gcc_8.5.0/include"
+            ],
+            "defines": [],
+            "compilerPath": "/lustre/software/oneapi/2023.0/mpi/2021.8.0/bin/mpicxx",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                "-g",
+                "-O3",
+                "-xhost",
+                "-flto"
             ]
         }
     ],

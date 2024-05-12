@@ -62,11 +62,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
 
-  //TODO 这里应该放到 SourceTerm 的最后？这样和 operator splitting 的顺序一致。但会导致 Cooling Timestep 没有被立刻限制。而放在前面则似乎能限制 Timestep，但输出变量是没包含 Cooling 的
   // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
   // 放在 SourceTerm 与 UserWorkInLoop 的区别是：SourceTerm 中 Cooling 使用的是未被其它 SourceTerm（比如 SN、Grav）修改的 prim。
   // 如果这一步注入 SN，那么 SourceTerm 并不会在这一步就产生强冷却，但 UserWorkInLoop 会立刻产生强冷却（而且步长未被限制）。
-  //* CoolingSourceTerm 目前放在 SourceTerm 中，以后可能考虑改到 UserWorkInLoop 中
+  //* 非 operator splitting 的 CoolingSourceTerm 在 SourceTerm 里面。若启用 operator splitting (似乎是更好的选择)，则在 UserWorkInLoop 里面。
   if (cooling.cooling_flag && !cooling.operator_splitting) {
     cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
@@ -221,7 +220,12 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 //TODO 在注入 SuperNova 之后，立即减小 TimeStep？
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
 Real MyTimeStep(MeshBlock *pmb) {
-  Real min_dt = std::numeric_limits<Real>::infinity();  // 先初始化为一个很大的数
+  Real min_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数。这里不用 infinity() 是为了万一启用 -ffast-math 之类的编译选项的话，对无穷大的处理可能不正确
+  //TEMP 测试 SN 一开始 dt 很小行不行
+  //* 如果 SN 在 SourceTerm 中注入，而 Cooling 放在 UserWorkInLoop 中，则需要手动限制 SN 的 dt。但如果 SN 改为在 UserWorkInLoop 中注入，就不需要了。
+  if (pmb->pmy_mesh->time < 1e-8) {
+    min_dt = 1e-8;
+  }
 
   if (cooling.cooling_flag) {
     Real cooling_dt = cooling.CoolingTimeStep(pmb);
@@ -489,7 +493,28 @@ void MeshBlock::UserWorkInLoop() {
     cooling.CoolingSourceTerm(this, pmy_mesh->time, pmy_mesh->dt,
                               phydro->w, pscalars->r, pfield->bcc,
                               phydro->u, pscalars->s);
+
+    //TODO 在这里实现 Supernovae 的注入。注意要放在 Cooling 之后，避免影响这一步的 Cooling （因为 Cooling 步长并未被其限制）
+
     //BUG 这里只修改了 cons？？ prim 似乎没有更新呀？cons 的更新会传递给下一步吗？会反映到当前步的 output 吗？
+    // 手动执行 cons2prim 的转换
+    // 因为在 UserWorkInLoop 中，我通过 operator splitting 的方式加入了 Cooling 和 Supernova 的源项，这些源项会修改 cons，要把 cons 的改变同步到 prim 上。
+    int il = is, iu = ie, jl = js, ju = je, kl = ks, ku = ke;
+    const AthenaArray<Real> prim_old = phydro->w;  // 把 prim_old 的值单独存下来，避免在接下来的调用中通过 phydro->w 修改了（尽管在普通的 EoS 的 ConservedToPrimitive 中，根本没有用到 prim_old）
+    peos->ConservedToPrimitive(phydro->u, prim_old, pfield->b,
+                                phydro->w, pfield->bcc, pcoord,
+                                il, iu, jl, ju, kl, ku);
+    //? 若启用 Passive Scalar，是不是需要在这里也手动转换 cons2prim ?
+    if (NSCALARS > 0) {
+      peos->PassiveScalarConservedToPrimitive(pscalars->s, phydro->u, pscalars->r, pscalars->r, pcoord,
+                                              il, iu, jl, ju, kl, ku);
+    }
+
+    // 若为 4 阶 reconstruction，可能需要额外的处理！参见其他调用 peos->ConservedToPrimitive 的地方
+
+    //? UserWorkInLoop 的调用应该在 PhysicalBoundary 之后，所以应该不需要考虑边界的问题？
+    // 如果考虑的话，需要把前面 il, iu, jl, ju, kl, ku 的值都分别加减 NGHOST，还可能要使用 SwapHydroQuantity？参见 time_integrator.cpp 和 mesh.cpp 中的调用
+
     // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
   }
   return;
