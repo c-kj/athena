@@ -12,6 +12,7 @@
 
 // Athena++ headers
 #include "../../athena.hpp"
+#include "../../mesh/mesh.hpp"
 #include "../../parameter_input.hpp"
 
 #include "region.hpp"
@@ -19,6 +20,7 @@
 
 using Vector = std::array<Real, 3>;
 
+// 单个（组）超新星的信息
 struct SuperNova {
   SuperNova(ParameterInput *pin, const int i, const int dim);
   
@@ -45,7 +47,33 @@ struct SuperNova {
 std::vector<SuperNova> read_supernova_list(ParameterInput *pin, const int ndim) ;
 
 
+// 用于存储所有超新星，控制其注入
+struct SuperNovae {
+public:
+  SuperNovae() = default; // 默认构造函数。需要这个才能在声明 SuperNovae supernovae 时初始化。不过如果改用指针，可能就不需要这个了。
+  SuperNovae(ParameterInput *pin, Mesh *pmy_mesh);
 
+  Units *punit;
+  int ndim;
+  int SN_flag;
+  std::string integrator;
+  
+
+
+  Real SN_energy_unit;
+  Real SN_mass_unit;
+
+  std::vector<SuperNova> supernova_list;
+  std::vector<SuperNova*> supernova_to_inject;
+
+  void GetSupernovaeToInject(const Real time, const Real dt);
+  void SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
+
+
+};
 
 
 

@@ -28,21 +28,14 @@
 Real GM_BH, R_in, R_out, rho_in_BH, rho_init, E_tot_init;
 
 
-std::string integrator;
-ParameterInput *global_pin;
 
 
 std::string init_cond_type;
 Real rho_at_boundary, E_tot_at_boundary, power_law_index, alpha;
 Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r);
 
-//TEMP
-int SN_flag;
-std::string SN_type;
-Real SN_time;
+SuperNovae supernovae;
 
-std::vector<SuperNova> supernova_list;
-std::vector<SuperNova*> supernova_to_inject;
 
 Cooling cooling;  //* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变。如果对象很大，可能会消耗大量的栈空间。
 

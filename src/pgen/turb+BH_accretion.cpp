@@ -56,7 +56,7 @@ Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
 
 // Source Term 源项
 //* 应该只依赖于 prim 而修改 cons。不能修改 prim。不应该依赖于 cons（尤其是因为 cons 可能被前面的源项修改）。
-//? 以后可能考虑把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
+//TODO 以后可能考虑把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
@@ -70,52 +70,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
     cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
-  const Real& mesh_time = pmb->pmy_mesh->time;
-  const Real& mesh_dt = pmb->pmy_mesh->dt;
-  const Real dt_ratio = dt/mesh_dt;
-
-  Units *punit = pmb->pmy_mesh->punit;
-  // 这里暂时没有写开关：什么情况下把 SN 的 input 单位解读为 1e51 erg 和 Msun。若有需求再改
-  Real SN_energy_unit = punit->bethe_code;
-  Real SN_mass_unit = punit->solar_mass_code;
-
-  Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
-
-  //* 处理适应于 integrator 的超新星注入时机
-  bool SN_flag_in_this_step = false;
-  if (SN_flag > 0) {
-    // 判断是否应该在这次调用 source term 时注入超新星
-    if (integrator == "vl2") { // VL2: 只在校正步注入
-      if (dt_ratio == 1.) {
-        inject_ratio = 1.;
-        SN_flag_in_this_step = true;
-      } else if (dt_ratio == .5) {
-        inject_ratio = 0.; // 奇怪，这里设为负数都行，不会影响结果。但 >0.25 左右就会炸步长
-      } 
-    } else if (integrator == "rk2") { // RK2: 只在完整步长的那一步注入 
-      if (dt_ratio == 1.) {
-        inject_ratio = 0.; // 这里似乎会影响注入的能量/质量，但数值只有一半的贡献。具体为什么暂时不管了。会炸步长。
-      } else if (dt_ratio == .5) {
-        inject_ratio = 1.;
-        SN_flag_in_this_step = true;
-      } 
-    } else { //* 其他 integrator，目前不处理，让他炸步长吧
-      // throw std::runtime_error("Unsupported integrator! Only VL2 and RK2 are supported.");
-      inject_ratio = 1.;
-      SN_flag_in_this_step = true;
-    }
-  }
-
-  if ( SN_flag_in_this_step ) { // 只有这一步有可能注入超新星时，才找出需要注入的超新星
-    // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
-    supernova_to_inject = {}; // 每次都要先清空
-    for (SuperNova& SN : supernova_list) {
-      for (Real& SN_time : SN.time_list) {
-        if (mesh_time <= SN_time && SN_time < mesh_time + mesh_dt) {
-          supernova_to_inject.push_back(&SN); // &SN 解引用，取 SN 的地址，也就是一个指向 SN 的指针
-        }
-      }
-    }
+  // 超新星的注入
+  //TODO 放到 UserWorkInLoop 中 
+  if (supernovae.SN_flag > 0) {
+    supernovae.SuperNovaeSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
   Real x,y,z,r,r3,vx,vy,vz,rho; 
@@ -130,9 +88,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         r3 = r*r*r;
         
         rho = prim(IDN,k,j,i); 
-        vx = prim(IVX,k,j,i);
-        vy = prim(IVY,k,j,i);
-        vz = prim(IVZ,k,j,i);
+        vx  = prim(IVX,k,j,i);
+        vy  = prim(IVY,k,j,i);
+        vz  = prim(IVZ,k,j,i);
 
         //? 只对黑洞外的区域施加引力，这样处理正确吗？不过在这里对 R_in 以内施加引力没用，接下来会被重设
         //? 这里需要 && r <= R_out 吗？
@@ -147,29 +105,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
             //? 这里是否需要考虑把平方项补偿上去？有待测试。
           }
-
-          // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
-          if ( SN_flag_in_this_step ) {
-            for (SuperNova* SN : supernova_to_inject) {
-              if ( SN->energy_region->contains({x,y,z}) ) {
-                cons(IEN,k,j,i) += SN->energy_density * inject_ratio * SN_energy_unit;
-              }
-              if ( SN->mass_region->contains({x,y,z}) ) {
-                cons(IDN,k,j,i) += SN->mass_density * inject_ratio * SN_mass_unit;
-              }
-              // 这里的 debug 信息不再那么有用，将来可以考虑删去
-              // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
-              //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-                  // printf_and_save_to_stream(debug_stream, 
-                  // "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
-                  // time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-              //   }
-              // } 
-            }
-          }
-
         }
 
+        //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中
+        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，放到 SimulationRegion 类中。这两个函数的调用是不是应该放在 UserWorkInLoop 中？这样只需调用一次，而且 RK2 关心的是变化量，可能不能准确一步抵达目标？
         // 进入黑洞的处理
         //? 这里的处理方式合适吗？动量为 0 应该没错，能量（压强）应该是个小值还是 0 ？
         if (r < R_in) {
@@ -191,7 +130,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
-          cons(IEN,k,j,i) = E_tot_init;
+          if (NON_BAROTROPIC_EOS) {
+            cons(IEN,k,j,i) = E_tot_init;
+          }
         }
 
         // debug 信息：逐个格点检查 rho 是否为 nan
@@ -293,18 +234,11 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_init = pin->GetReal("problem","rho_init");
   E_tot_init = pin->GetReal("problem", "E_tot_init");
 
-  integrator = pin->GetOrAddString("time", "integrator", "vl2"); // 记录 integrator。目前用来处理超新星的注入时机
 
   cooling = Cooling(pin, this);
 
   // 读取超新星的参数
-  SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);
-  if (SN_flag > 0) {
-    if ( !NON_BAROTROPIC_EOS ) {
-      throw std::runtime_error("SN explosion is not implemented for barotropic EOS!"); 
-    }
-    supernova_list = read_supernova_list(pin, ndim); // 需要传入 ndim，从而确定区域的维数
-  }
+  supernovae = SuperNovae(pin, this);
 
   // 读取自定义的 AMR 参数
   if (adaptive) {
@@ -493,30 +427,29 @@ void MeshBlock::UserWorkInLoop() {
     cooling.CoolingSourceTerm(this, pmy_mesh->time, pmy_mesh->dt,
                               phydro->w, pscalars->r, pfield->bcc,
                               phydro->u, pscalars->s);
+  }
 
     //TODO 在这里实现 Supernovae 的注入。注意要放在 Cooling 之后，避免影响这一步的 Cooling （因为 Cooling 步长并未被其限制）
 
-    //BUG 这里只修改了 cons？？ prim 似乎没有更新呀？cons 的更新会传递给下一步吗？会反映到当前步的 output 吗？
-    // 手动执行 cons2prim 的转换
-    // 因为在 UserWorkInLoop 中，我通过 operator splitting 的方式加入了 Cooling 和 Supernova 的源项，这些源项会修改 cons，要把 cons 的改变同步到 prim 上。
-    int il = is, iu = ie, jl = js, ju = je, kl = ks, ku = ke;
-    const AthenaArray<Real> prim_old = phydro->w;  // 把 prim_old 的值单独存下来，避免在接下来的调用中通过 phydro->w 修改了（尽管在普通的 EoS 的 ConservedToPrimitive 中，根本没有用到 prim_old）
-    peos->ConservedToPrimitive(phydro->u, prim_old, pfield->b,
-                                phydro->w, pfield->bcc, pcoord,
-                                il, iu, jl, ju, kl, ku);
-    //? 若启用 Passive Scalar，是不是需要在这里也手动转换 cons2prim ?
-    if (NSCALARS > 0) {
-      peos->PassiveScalarConservedToPrimitive(pscalars->s, phydro->u, pscalars->r, pscalars->r, pcoord,
-                                              il, iu, jl, ju, kl, ku);
-    }
-
-    // 若为 4 阶 reconstruction，可能需要额外的处理！参见其他调用 peos->ConservedToPrimitive 的地方
-
-    //? UserWorkInLoop 的调用应该在 PhysicalBoundary 之后，所以应该不需要考虑边界的问题？
-    // 如果考虑的话，需要把前面 il, iu, jl, ju, kl, ku 的值都分别加减 NGHOST，还可能要使用 SwapHydroQuantity？参见 time_integrator.cpp 和 mesh.cpp 中的调用
-
-    // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
+  // 手动执行 cons2prim 的转换
+  // 因为在 UserWorkInLoop 中，我通过 operator splitting 的方式加入了 Cooling 和 Supernova 的源项，这些源项会修改 cons，要把 cons 的改变同步到 prim 上。
+  int il = is, iu = ie, jl = js, ju = je, kl = ks, ku = ke;
+  const AthenaArray<Real> prim_old = phydro->w;  // 把 prim_old 的值单独存下来，避免在接下来的调用中通过 phydro->w 修改了（尽管在普通的 EoS 的 ConservedToPrimitive 中，根本没有用到 prim_old）
+  peos->ConservedToPrimitive(phydro->u, prim_old, pfield->b,
+                              phydro->w, pfield->bcc, pcoord,
+                              il, iu, jl, ju, kl, ku);
+  //? 若启用 Passive Scalar，是不是需要在这里也手动转换 cons2prim ?
+  if (NSCALARS > 0) {
+    peos->PassiveScalarConservedToPrimitive(pscalars->s, phydro->u, pscalars->r, pscalars->r, pcoord,
+                                            il, iu, jl, ju, kl, ku);
   }
+
+  // 若为 4 阶 reconstruction，可能需要额外的处理！参见其他调用 peos->ConservedToPrimitive 的地方
+
+  //? UserWorkInLoop 的调用应该在 PhysicalBoundary 之后，所以应该不需要考虑边界的问题？
+  // 如果考虑的话，需要把前面 il, iu, jl, ju, kl, ku 的值都分别加减 NGHOST，还可能要使用 SwapHydroQuantity？参见 time_integrator.cpp 和 mesh.cpp 中的调用
+
+  // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
   return;
 }
 
