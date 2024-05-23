@@ -15,6 +15,8 @@
 #include "../../mesh/mesh.hpp"
 #include "../../parameter_input.hpp"
 
+// 自定义的头文件
+#include "ckj_code.hpp"
 #include "region.hpp"
 
 
@@ -58,7 +60,8 @@ public:
   int SN_flag;
   std::string integrator;
   
-
+  // 目前直接把这个量设为编译时常量，不从参数文件读取。SN 在 SourceTerm 结尾注入时最佳的，能够准确控制时间并且能在当前步的 prim 中输出。
+  static constexpr SourceTermPosition source_term_position = SourceTermPosition::AfterSourceTerm; // 在哪个位置注入 SN
 
   Real SN_energy_unit;
   Real SN_mass_unit;

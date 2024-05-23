@@ -50,6 +50,7 @@ SuperNova::SuperNova(ParameterInput *pin, const int i, const int dim) {
     throw std::invalid_argument("Unknown region type: " + region_name);
   }
 
+  // 这里 energy_density 和 mass_density 的单位有点奇怪：energy 是 input file 中的数字，单位为 1e51 erg（目前），而 volume 是 code unit。但这样做是为了尽量避免重复计算 / 重复储存。
   energy_density = energy / energy_region->volume; //* volume 有时会被初始化为 0，因为这种时候 region.contains() 永远不会为 true
   mass_density = mass / mass_region->volume;
 
@@ -112,40 +113,15 @@ void SuperNovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
 
   const Real& mesh_time = pmb->pmy_mesh->time;
   const Real& mesh_dt = pmb->pmy_mesh->dt;
-  const Real dt_ratio = dt/mesh_dt;
 
+  // 当前调用 SourceTerm 时的注入比例。
+  // 对于 AfterSourceTerm 和 UserWorkInLoop，传入的 dt 都是 mesh_dt，从而 inject_ratio = 1.0
+  // 对于 InSourceTerm，传入的 dt 是当前 stage 的 dt，inject_ratio = beta_last_stage，根据当前 stage 的比例来调整注入的比例。
+  // 注意：传入到这个函数的 dt 不一定是 总 SourceTerm 函数在当前 stage 接收到的 dt。因此这个变量不叫 dt_ratio，以示区分。
+  const Real inject_ratio = dt/mesh_dt;
 
-  Real inject_ratio = 0.0; // 用于控制超新星能量、质量、动量等的注入比例。对于 vl2 和 rk2 两种方法不是很有必要，因为最优都是只在某一步注入 1.0。
-
-  //* 处理适应于 integrator 的超新星注入时机
-  bool SN_flag_in_this_step = false;
-  if (SN_flag > 0) {
-    // 判断是否应该在这次调用 source term 时注入超新星
-    if (integrator == "vl2") { // VL2: 只在校正步注入
-      if (dt_ratio == 1.) {
-        inject_ratio = 1.;
-        SN_flag_in_this_step = true;
-      } else if (dt_ratio == .5) {
-        inject_ratio = 0.; // 奇怪，这里设为负数都行，不会影响结果。但 >0.25 左右就会炸步长
-      } 
-    } else if (integrator == "rk2") { // RK2: 只在完整步长的那一步注入 
-      if (dt_ratio == 1.) {
-        inject_ratio = 0.; // 这里似乎会影响注入的能量/质量，但数值只有一半的贡献。具体为什么暂时不管了。会炸步长。
-      } else if (dt_ratio == .5) {
-        inject_ratio = 1.;
-        SN_flag_in_this_step = true;
-      } 
-    } else { //* 其他 integrator，目前不处理，让他炸步长吧
-      // throw std::runtime_error("Unsupported integrator! Only VL2 and RK2 are supported.");
-      inject_ratio = 1.;
-      SN_flag_in_this_step = true;
-    }
-  }
-
-
-  if ( SN_flag_in_this_step ) { // 只有这一步有可能注入超新星时，才找出需要注入的超新星
-    GetSupernovaeToInject(mesh_time, mesh_dt);
-  }
+  GetSupernovaeToInject(mesh_time, mesh_dt); // 寻找应在当前步中爆炸的 SN 时，使用 mesh_time 和 mesh_dt，而非 SourceTerm 传入的 time 和 dt
+  if ( supernova_to_inject.empty() ) return; // 如果当前时间步没有超新星爆炸，直接跳出
   
   Real x,y,z,r; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -155,27 +131,25 @@ void SuperNovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
 #pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         x = pmb->pcoord->x1v(i);
-        r = sqrt(x*x + y*y + z*z);
 
+//TODO 限制不能在黑洞内部注入超新星！
         if (true) {
          // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
-          if ( SN_flag_in_this_step ) {
-            for (SuperNova* SN : supernova_to_inject) {
-              if ( SN->energy_region->contains({x,y,z}) ) {
-                cons(IEN,k,j,i) += SN->energy_density * inject_ratio * SN_energy_unit;
-              }
-              if ( SN->mass_region->contains({x,y,z}) ) {
-                cons(IDN,k,j,i) += SN->mass_density * inject_ratio * SN_mass_unit;
-              }
-              // 这里的 debug 信息不再那么有用，将来可以考虑删去
-              // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
-              //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-              //     printf_and_save_to_stream(debug_stream, 
-              //     "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
-              //     time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-              //   }
-              // } 
+          for (SuperNova* SN : supernova_to_inject) {
+            if ( SN->energy_region->contains({x,y,z}) ) {
+              cons(IEN,k,j,i) += SN->energy_density * SN_energy_unit * inject_ratio;
             }
+            if ( SN->mass_region->contains({x,y,z}) ) {
+              cons(IDN,k,j,i) += SN->mass_density * SN_mass_unit * inject_ratio;
+            }
+            // 这里的 debug 信息不再那么有用，将来可以考虑删去
+            // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
+            //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
+            //     printf_and_save_to_stream(debug_stream, 
+            //     "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
+            //     time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+            //   }
+            // } 
           }
         }
       }
