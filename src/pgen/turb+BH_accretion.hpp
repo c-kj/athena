@@ -22,6 +22,7 @@
 
 //BUG 这些全局变量并没有使用 extern 来声明，如果被多个源文件包含的话，会重复定义，违反 ODR，编译也会报错。目前这些全局变量只在 turb+BH_accretion.cpp 中使用，暂时没出问题。
 //TODO 将这些全局变量大多数改造为类的成员变量。剩余的用 extern 声明，然后在 turb+BH_accretion.cpp 中定义。
+//* 实际上，目前没有任何其他源文件（除了 turb+BH_accretion.cpp）包含这个 hpp。这里面的大部分声明都可以直接挪到 turb+BH_accretion.cpp 的开头。
 // 声明自定义的全局变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
 
@@ -46,6 +47,8 @@ std::string debug_filepath, verbose_filepath;
 std::ofstream debug_stream;
 
 
+// integrator 的最后一个 stage 的 beta 值，即传入 SourceTerm 的 dt 与当前 cycle 的 mesh_dt 之比。
+Real beta_last_stage;
 
 
 // 源项

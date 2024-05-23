@@ -54,28 +54,70 @@ Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
   return pow(1 + alpha * R_Bondi / r, 1.5);
 }
 
+// 用于在 SourceTerm 中判断当前是否为最后一个 stage。目前使用 dt_ratio 来判断。
+inline bool IsLastStage(const Real dt_ratio) {
+  // 目前看来，我猜测 orbital_advection 和 integrator 不能在运行时动态修改，但可以在 restart 时通过 cmd 或 input file 更改。因此，只需在 InitUserMeshData 中拿到 integrator 即可。但有待验证。
+  return dt_ratio == beta_last_stage;
+}
+
+// 这个函数只在 time integrator 的最后一个 stage 调用。通过 IsLastStage 函数来判断。
+void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  //* 在这个函数中，传给下层 SourceTerm 的 time 和 dt 应该是完整的 mesh_time 和 mesh_dt，而非 SourceTerm 中传入的当前 stage 的 dt。
+  // 例如 Cooling，需要在这里走一整步。而 SN SourceTerm 内部的 dt/mesh_dt 也得到 1.0，意味着在这里一次性注入。
+  // 在下层的 SourceTerm 中应该不需要用到「当前 stage」的 time 和 dt，相关的判断都在外层做完了。
+  const Real mesh_time = pmb->pmy_mesh->time;
+  const Real mesh_dt = pmb->pmy_mesh->dt;
+
+  // 把 SN 放在 cooling 之后，避免 cooling 时受到 SN 的影响，因为这一步尚未根据 SN 限制 dt。
+
+  // Cooling，在这里意味着使用当前步开始时的 prim，只走一整步。//? 这可能不一定稳定 or 准确？
+  if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::AfterSourceTerm) {
+    cooling.CoolingSourceTerm(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 超新星的注入 //*目前默认是在 SourceTerm 的结尾。
+  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::AfterSourceTerm) {
+    supernovae.SuperNovaeSourceTerm(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+};
+
 // Source Term 源项
 //* 应该只依赖于 prim 而修改 cons。不能修改 prim。不应该依赖于 cons（尤其是因为 cons 可能被前面的源项修改）。
-//TODO 以后可能考虑把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
+// 把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
+void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
+  // 但是，第一个 stage 对 cons 的更新会进入第二个 stage 的 prim，
+  if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::InSourceTerm) {
+    cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 超新星的注入 // 目前默认并不在这里注入，如果随着源项注入，可能会炸步长 / 注入比例不对，但未经测试（暂时没必要尝试这个）。
+  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::InSourceTerm) {
+    supernovae.SuperNovaeSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 中心黑洞的引力
+  if (GM_BH != 0.0) {
+    SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  Real mesh_dt = pmb->pmy_mesh->dt;
+  if (IsLastStage(dt/mesh_dt)) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
+    SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+}
+
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-
-  // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
-  // 放在 SourceTerm 与 UserWorkInLoop 的区别是：SourceTerm 中 Cooling 使用的是未被其它 SourceTerm（比如 SN、Grav）修改的 prim。
-  // 如果这一步注入 SN，那么 SourceTerm 并不会在这一步就产生强冷却，但 UserWorkInLoop 会立刻产生强冷却（而且步长未被限制）。
-  //* 非 operator splitting 的 CoolingSourceTerm 在 SourceTerm 里面。若启用 operator splitting (似乎是更好的选择)，则在 UserWorkInLoop 里面。
-  if (cooling.cooling_flag && !cooling.operator_splitting) {
-    cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
-  // 超新星的注入
-  //TODO 放到 UserWorkInLoop 中 
-  if (supernovae.SN_flag > 0) {
-    supernovae.SuperNovaeSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
   Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     z = pmb->pcoord->x3v(k);
@@ -162,14 +204,16 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
 Real MyTimeStep(MeshBlock *pmb) {
   Real min_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数。这里不用 infinity() 是为了万一启用 -ffast-math 之类的编译选项的话，对无穷大的处理可能不正确
-  //TEMP 测试 SN 一开始 dt 很小行不行
-  //* 如果 SN 在 SourceTerm 中注入，而 Cooling 放在 UserWorkInLoop 中，则需要手动限制 SN 的 dt。但如果 SN 改为在 UserWorkInLoop 中注入，就不需要了。
-  if (pmb->pmy_mesh->time < 1e-8) {
-    min_dt = 1e-8;
+  //* 如果 SN 在 UserWorkInLoop 中注入，那么由于在决定下一个 cycle 的 dt 时尚未注入 SN，因此无法自动限制步长，需要手动限制：
+  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::UserWorkInLoop) {
+    // 根据 supernova_to_inject 是否为空来判断，实际上会把所有 MeshBlock 的都算进来。但反正是取最小值，所以不影响结果。
+    if (!supernovae.supernova_to_inject.empty()) {
+      min_dt = std::min(min_dt, 1e-8);
+    }
   }
 
   if (cooling.cooling_flag) {
-    Real cooling_dt = cooling.CoolingTimeStep(pmb);
+    Real cooling_dt = cooling.CoolingTimeStep(pmb);  // 注：这里使用的是 cons2prim 之后的 prim 来计算 cooling_dt
     min_dt = std::min(min_dt, cooling_dt);
   }
   return min_dt;
@@ -202,7 +246,7 @@ inline Real hst_dt_user(MeshBlock *pmb, int iout) {
 // 以下是 Athena++ 提供的接口
 //========================================================================================
 
-// 调用时机：程序启动时（包括 restart 时）
+// 调用时机：Mesh 类实例化时，也即 main.cpp 的 Step 4。restart 时也会调用。
 // 函数用途：初始化 Mesh 上的全局变量（各个 MeshBlock 共享）；enroll 各种自定义函数
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (SELF_GRAVITY_ENABLED) {
@@ -218,15 +262,38 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (turb_flag != 0) {
 #ifndef FFT
     std::stringstream msg;
-    msg << "### FATAL ERROR in TurbulenceDriver::TurbulenceDriver" << std::endl
-        << "non zero Turbulence flag is set without FFT!" << std::endl;
+    msg << "### FATAL ERROR in TurbulenceDriver::TurbulenceDriver" << '\n'
+        << "non zero Turbulence flag is set without FFT!" << '\n';
     ATHENA_ERROR(msg);
     return;
 #endif
   }
 
+  // 用于 IsLastStage 函数
+  if (orbital_advection != 0) {
+    std::cout << "### ERROR: 启用了 orbital_advection，但目前我对 SourceTermAtLastStage 的实现只使用 dt_ratio 的值来 \
+    简单判断。对于 orbital_advection，需要拿到 TaskList 的指针，获取最后一个 stage 的 beta；或者直接根据 stage 判断。\n";
+    throw std::runtime_error("orbital_advection 与自定义的 SourceTermAtLastStage 不兼容！");
+  }
+  // 以下各个 Integrator 的 beta 的值都是假设没有启用 orbital_advection 的。从 time_integrator.cpp 中抄来：
+  // rk1: beta == {1.0}
+  // vl2: beta == {0.5, 1.0}
+  // rk2: beta == {1.0, 0.5}
+  // rk3: beta == {1.0, 0.25, TWO_3RD}
+  // rk4: beta == {1.193743905974738, 0.099279895495783, 1.131678018054042, 0.310665766509336}
+  // ssprk5_4: 太长了……反正现在也用不着
+  std::string integrator = pin->GetString("time", "integrator");
+  std::unordered_map<std::string, Real> beta_last_stage_map = {
+    {"rk1", 1.0},
+    {"vl2", 1.0},
+    {"rk2", 0.5},
+    {"rk3", TWO_3RD},
+  };
+  beta_last_stage = beta_last_stage_map.at(integrator);  // 使用 .at 来获取值，如果 key 不存在会抛出异常。
 
   // 从 input file 中读取参数，存到 pgen 文件的全局变量中
+  //TODO GM_BH 改为使用以 Msun 为单位的 M_BH
+  //TODO 给这几个变量设定默认值
   GM_BH = pin->GetReal("problem","GM_BH");
   R_in = pin->GetReal("problem","R_in");
   R_out = pin->GetReal("problem","R_out");
@@ -239,6 +306,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // 读取超新星的参数
   supernovae = SuperNovae(pin, this);
+
+  if (supernovae.source_term_position <= SourceTermPosition::AfterSourceTerm && cooling.source_term_position == SourceTermPosition::UserWorkInLoop) {
+    std::cout << "### WARNING: Supernova 在 SourceTerm 中/结尾 注入，而 Cooling 在 UserWorkInLoop 中。这会导致注入 SN 那一步的 Cooling TimeStep 未受限制！ \n";
+  }
 
   // 读取自定义的 AMR 参数
   if (adaptive) {
@@ -258,8 +329,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Enroll 各种自定义函数
 
   // 将自定义的源项注册到 Athena++ 中
-  // 调用时机：在每个时间步中调用两次，一次在开头，一次在中间
-  EnrollUserExplicitSourceFunction(SMBH_grav);
+  // 调用时机：根据 integrator 有所不同。对于 VL2，在每个时间步中调用两次，一次在开头，一次在中间；
+  EnrollUserExplicitSourceFunction(MySourceFunction);
 
   // 将自定义的 AMR 条件注册到 Athena++ 中
   if (adaptive) {
@@ -379,7 +450,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     }
   }
 
-  //TEMP heart 的初始条件，等写好了 region 类之后整理
+  //TODO heart 的初始条件，等写好了 region 类之后整理
   if (init_cond_type == "heart") {
     std::string block = "initial_condition/heart";
     Real a = pin->GetOrAddReal(block, "a", 3.3);
@@ -422,32 +493,23 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 // 调用时机：在每个时间步的结尾。每个 MeshBlock 调用一次
 // 函数用途：仅用于分析，不用于操作数据
 void MeshBlock::UserWorkInLoop() {
-  if (cooling.cooling_flag && cooling.operator_splitting) {  // 如果开启了 operator splitting，则在 UserWorkInLoop 中调用 CoolingSourceTerm
+  //* 如果这里以后要实现多个源项的作用，要考虑其顺序：
+  //? 是像 SourceTerm 里那样全都从同一个 prim 出发，改变 cons，最后再统一 cons2prim； 还是进行 operator splitting，一项处理完之后先 cons2prim 一下，再进行下一项？目前采用前者，都从同一个 prim 出发。
+
+  if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::UserWorkInLoop) {  // 如果开启了 operator splitting，则在 UserWorkInLoop 中调用 CoolingSourceTerm
     // 这里调用的参数，参考 src/task_list/time_integrator.cpp 中 AddSourceTerms 的调用
     cooling.CoolingSourceTerm(this, pmy_mesh->time, pmy_mesh->dt,
                               phydro->w, pscalars->r, pfield->bcc,
                               phydro->u, pscalars->s);
   }
 
-    //TODO 在这里实现 Supernovae 的注入。注意要放在 Cooling 之后，避免影响这一步的 Cooling （因为 Cooling 步长并未被其限制）
-
-  // 手动执行 cons2prim 的转换
-  // 因为在 UserWorkInLoop 中，我通过 operator splitting 的方式加入了 Cooling 和 Supernova 的源项，这些源项会修改 cons，要把 cons 的改变同步到 prim 上。
-  int il = is, iu = ie, jl = js, ju = je, kl = ks, ku = ke;
-  const AthenaArray<Real> prim_old = phydro->w;  // 把 prim_old 的值单独存下来，避免在接下来的调用中通过 phydro->w 修改了（尽管在普通的 EoS 的 ConservedToPrimitive 中，根本没有用到 prim_old）
-  peos->ConservedToPrimitive(phydro->u, prim_old, pfield->b,
-                              phydro->w, pfield->bcc, pcoord,
-                              il, iu, jl, ju, kl, ku);
-  //? 若启用 Passive Scalar，是不是需要在这里也手动转换 cons2prim ?
-  if (NSCALARS > 0) {
-    peos->PassiveScalarConservedToPrimitive(pscalars->s, phydro->u, pscalars->r, pscalars->r, pcoord,
-                                            il, iu, jl, ju, kl, ku);
+  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::UserWorkInLoop) {
+    supernovae.SuperNovaeSourceTerm(this, pmy_mesh->time, pmy_mesh->dt,
+                                  phydro->w, pscalars->r, pfield->bcc,
+                                  phydro->u, pscalars->s);
   }
 
-  // 若为 4 阶 reconstruction，可能需要额外的处理！参见其他调用 peos->ConservedToPrimitive 的地方
-
-  //? UserWorkInLoop 的调用应该在 PhysicalBoundary 之后，所以应该不需要考虑边界的问题？
-  // 如果考虑的话，需要把前面 il, iu, jl, ju, kl, ku 的值都分别加减 NGHOST，还可能要使用 SwapHydroQuantity？参见 time_integrator.cpp 和 mesh.cpp 中的调用
+  // 在这里做 cons2prim 的话，由于 MeshBlock 之间的通信在此之前，会造成数据不自洽，导致 MeshBlock 的边界上不对。因此这里不能 cons2prim
 
   // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
   return;
