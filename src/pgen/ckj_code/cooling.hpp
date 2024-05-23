@@ -8,6 +8,9 @@
 #include "../../athena.hpp"
 #include "../../mesh/mesh.hpp"
 
+// 自定义的头文件
+#include "ckj_code.hpp"
+
 // CoolingModel 是各种冷却函数的基类
 //* 把 CoolingModel 写成类，本来是为了实现对应的 Jacobian。但目前 Jacobian 并没有用到，所以也没啥意义……
 class CoolingModel {
@@ -44,9 +47,6 @@ public:
 };
 
 
-
-
-//TODO
 struct Cooling {
   Cooling() = default;  // 默认构造函数。需要这个才能在声明 Cooling cooling 时初始化。不过如果改用指针，可能就不需要这个了。
   Cooling(ParameterInput *pin, Mesh *pmy_mesh);
@@ -67,17 +67,32 @@ struct Cooling {
                          const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
                          const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
                          AthenaArray<Real> &cons_scalar);
-
-  std::unique_ptr<CoolingModel> model;
   Units *punit;
-  std::string cooling_model, integrator;
+
+  // CoolingModel
+  std::string cooling_model;
+  std::unique_ptr<CoolingModel> model;
   bool cooling_flag;
-  bool operator_splitting, implicit;
+
+  // Cooling SourceTerm 的注入方式
+  SourceTermPosition source_term_position;
+  bool use_prim_in_cooling;
+
+  // Integrator
+  std::string integrator;
+  bool implicit;
+  Real CFL_cooling;
+
+  // RootFinder
   int max_iter;
   Real rel_tol, abs_tol;
 
-  Real CFL_cooling, CFL_subcycle;
+  // Subcycle
+  Real CFL_subcycle;
   bool subcycle_adaptive;
+
+  // Limiter
+  bool limiter_on;
   Real T_floor_cgs;
 
   // Real gamma; //* 不用 gamma，以兼容 General EoS

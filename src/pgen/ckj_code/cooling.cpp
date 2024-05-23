@@ -10,31 +10,43 @@
 
 Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
 
+  //TODO 要不要用初始化列表？
+  // 使用初始化列表的主要好处：可以初始化 const 和 引用 类型的成员变量
+
+  // 配置 CoolingModel & 是否开启 cooling
   cooling_model = pin->GetOrAddString("cooling", "cooling_model", "none");
   cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
   if (!cooling_flag) {return;}  // 如果没有开启 cooling，则不继续初始化
+  model = CoolingModel::Create(cooling_model);  // 根据输入的 cooling_model 字符串，创建一个 CoolingModel 的指针
   
+  // 从 input 中确定 CoolingSourceTerm 在什么时机注入
+  // 放在 SourceTerm 与 UserWorkInLoop 的区别是：SourceTerm 中 Cooling 使用的是未被其它 SourceTerm（比如 SN、Grav）修改的 prim。（若使用 cons 则是被修改过的）
+  // 如果这一步注入 SN，那么 SourceTerm 并不会在这一步就产生强冷却，但 UserWorkInLoop 会立刻产生强冷却（而且步长未被限制）。
+  //* 目前看来似乎 InSourceTerm 比较好（虽然要算两次）。如果后续确定下来，可以改为在 .hpp 中以 static constexpr 定义，从而在编译器优化掉。
+  std::string source_term_position_str = pin->GetOrAddString("cooling", "source_term_position", "InSourceTerm");
+  source_term_position = source_term_position_map.at(source_term_position_str);
+  use_prim_in_cooling = pin->GetOrAddBoolean("cooling", "use_prim_in_cooling", true);  // 使用 prim 或 cons 来计算 rho、P
+
+
+  // 配置 integrator
+  integrator = pin->GetOrAddString("cooling", "integrator", "Euler");
+  implicit = pin->GetOrAddBoolean("cooling", "implicit", true);
   CFL_cooling = pin->GetOrAddReal("cooling", "CFL_cooling", 1.0); 
   if (CFL_cooling <= 0.0) {throw std::invalid_argument("CFL_cooling must be positive!");}
-  operator_splitting = pin->GetOrAddBoolean("cooling", "operator_splitting", true);
-  implicit = pin->GetOrAddBoolean("cooling", "implicit", true);
-  integrator = pin->GetOrAddString("cooling", "integrator", "Euler");
-  T_floor_cgs = pin->GetOrAddReal("cooling", "T_floor", 1e2);
 
-  // RootFinder 的参数
+  // 配置 RootFinder
+  //TODO 有待调整：默认 max_iter = 10? tol 应该为多少？
   max_iter = pin->GetOrAddInteger("cooling", "max_iter", 1);
   rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);
   abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 1e-6);
 
-  // Subcycle 的参数
+  // 配置 Subcycle
   CFL_subcycle = pin->GetOrAddReal("cooling", "CFL_subcycle", 1.0);
   subcycle_adaptive = pin->GetOrAddBoolean("cooling", "subcycle_adaptive", true);
 
-  if (operator_splitting != implicit) {
-    std::cerr << "[警告] 在 cooling 的配置中, operator_splitting 应当和 implicit 一致！\n";
-  }
-
-  model = CoolingModel::Create(cooling_model);  // 根据输入的 cooling_model 字符串，创建一个 CoolingModel 的指针
+  // 配置 Limiter
+  limiter_on = pin->GetOrAddBoolean("cooling", "limiter_on", false);  // cooling 的结尾是否要用 limiter 限制
+  T_floor_cgs = pin->GetOrAddReal("cooling", "T_floor", 1e2);
 
 
   // 设定元素丰度（H, He, Metal 的质量分数） //* 目前暂时放在 Cooling 类的成员变量中，但如果组分要演化，则再考虑更改。
@@ -177,11 +189,14 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
     for (int j = pmb->js; j <= pmb->je; ++j) {
       for (int i = pmb->is; i <= pmb->ie; ++i) {  // Athena++ 的 OMP 好像是基于 MeshBlock 的，搞不清楚，如果涉及归约操作的话，OMP 并行可能有问题。先不启用。
 
-        Real rho = prim(IDN,k,j,i); 
-        Real P = prim(IPR,k,j,i);
-        //TEMP 尝试使用 cons 而非 prim？好像并不合理
-        // Real rho = cons(IDN,k,j,i); 
-        // Real P = (gamma - 1.0) * (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+        Real rho, P;
+        if (use_prim_in_cooling) {  // 使用 prim 或 cons 来计算 rho、P
+          rho = prim(IDN,k,j,i); 
+          P = prim(IPR,k,j,i);
+        } else {
+          rho = cons(IDN,k,j,i); 
+          P = (gamma - 1.0) * (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+        }
 
         auto RHS = [&gamma,&rho,this](Real E_thermal) {
           Real P = (gamma - 1.0) * E_thermal;
@@ -206,16 +221,19 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           t_subcycle += dt_subcycle;
         }
 
-        // dE = - std::min(std::abs(dE), E_thermal * 0.1);  // 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
+        if (limiter_on) {
+          // dE = - std::min(std::abs(dE), E_thermal * 0.1);  //TEMP 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
+          // 限制最低温度
+          Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
+          //TODO 仔细思考这里的 Limiter
+          dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  // 这里算得的 dE 目前不一定是 < 0 的，因为如果低于 floor 反而会加热 
+          //? 注意，可能会和黑洞内的 floor 冲突，导致黑洞内的温度被抬上来。
+        }
 
-        //TEMP 限制最低温度。但要考虑到 source term 在一个 dt 内被调用多次
-        Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
-        //TODO 仔细思考这里的 Limiter
-        dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  // 这里的 dE 目前不一定是 < 0 的，因为如果低于 floor 反而会加热
 
         cons(IEN,k,j,i) += dE;
 
-        pmb->user_out_var(I_cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中  //TEMP
+        pmb->user_out_var(I_cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
       }
     }
