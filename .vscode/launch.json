@@ -1,6 +1,51 @@
 {
     "configurations": [
         {
+            "name": "(gdb) 启动 on wm2",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/bin/athena",
+            "args": ["-d", "output", "-i", "test_cooling.athinput"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            // "preLaunchTask": "loadModules on wm2", // 实际上由于 task 是新开一个 shell，回到这个 shell 之后环境还是没有被加载。
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+        },
+
+        {
+            "name": "(gdb) 附加",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceRoot}/bin/athena",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+        },
+        {
             "name": "Athena++ 调试（附加）",
             "type": "cppdbg",
             "request": "attach",
@@ -14,8 +59,8 @@
             "program": "${workspaceRoot}/bin/athena",
             "args": ["-d", "output", "-i", "test_cooling.athinput"],  //CHANGEME 修改 .athinput 文件名
             "stopAtEntry": false,
-            // "cwd": "${fileDirname}",
-            "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/cooling/r=2e-1_uniform128_3", //CHANGEME 修改路径 //? 也许可以有更好的方法？ 
+            "cwd": "${fileDirname}",
+            // "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/single_SN/cooling/r=2e-1_uniform128_3", //CHANGEME 修改路径 //? 也许可以有更好的方法？ 
             // "cwd": "/Volumes/ZhiTai APFS/Data/BH_SN_turbulence/test cases/pure_SN/uniform/2D_512/r=0.1_test", //? 也许可以有更好的方法？
             "environment": [],
             "externalConsole": false,

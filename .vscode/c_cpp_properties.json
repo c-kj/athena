@@ -26,7 +26,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/lustre/software/oneapi/2023.0/mpi/2021.8.0/include",
-                "/lustre/software/fftw/3.3.10/gcc_8.5.0/include"
+                "/lustre/software/fftw/3.3.10/gcc_8.5.0/include",
+                "/lustre/software/hdf5/1.12.1-p/oneapi_2023.0/include"
             ],
             "defines": [],
             "compilerPath": "/lustre/software/oneapi/2023.0/mpi/2021.8.0/bin/mpicxx",

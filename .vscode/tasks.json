@@ -41,7 +41,13 @@
                 "reveal": "always"
             },
             "problemMatcher": []
-        }
+        },
+        {
+            "label": "loadModules on wm2",
+            "type": "shell",
+            "command": "module purge && module load compiler hdf5/1.12.1-p-oneapi_2023.0 mpi fftw",
+            "problemMatcher": []
+        },
     ],
     "version": "2.0.0"
     
