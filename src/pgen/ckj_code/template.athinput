@@ -20,6 +20,7 @@ file_type  = hdf5             # HDF5 Output 是主要的输出数据
 dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim,uov         # 只输出主变量 prim 和 uov，cons 变量由后处理计算，减小输出体积。注意用 ',' 分隔，不能有空格！
 id         = prim             # output id
+xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output3>
 file_type  = rst              # Restart File，用于断点续算
@@ -32,6 +33,7 @@ dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id         = x3_slice_0e0     # output id
 x3_slice   = 0.0              # slice position in X3
+xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output5>
 file_type  = hdf5             # sum 输出
@@ -39,6 +41,7 @@ dt         = 0.01             # dt 适当大一点，避免输出过多
 variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id         = x3_sum           # output id
 x3_sum     = true             # sum over X3
+xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 
 <time>
@@ -100,6 +103,7 @@ nx3        = 32
 <hydro>
 gamma           = 1.666666666667   # gamma = C_p/C_v   # 取 gamma = 5/3，单分子气体，绝热
 # iso_sound_speed = 1.00           # equivalent to sqrt(gamma*p/d) for p=0.1, d=1
+grav_acc3       = 0.0              # 均匀重力场（内置但无文档）。
 
 
 <turbulence>      # 这里的 n 实际上是 L/λ，即区域内包含的波的个数。对应的物理尺度为 λ = L/n in code units
@@ -163,19 +167,27 @@ unit_system = supernova              # 我自定义的 supernova 单位制, [len
 
 
 <cooling>
-cooling_model = Draine_2011          # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
-CFL_cooling   = 0.5                  # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
-implicit = true                      # 若为 true 则使用隐式求解器，否则使用显式求解器。
-integrator = Euler                   # 可选值: Euler, /  RK2, RK4, ...
+cooling_model        = Draine_2011      # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
+source_term_position = InSourceTerm     # InSourceTerm, AfterSourceTerm, UserWorkInLoop
+use_prim_in_cooling  = true             # true: use prim
+
+# Integrator
+integrator   = Euler                 # 可选值: Euler, RK4, ...
+implicit     = true                  # 若为 true 则使用隐式求解器，否则使用显式求解器。
+CFL_cooling  = 0.5                   # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
+
+# RootFinder
+max_iter = 1                         # root_finder 的最大迭代次数，默认为 1 (半隐式)
+rel_tol  = 1e-6                      # root_finder 的相对误差
+abs_tol  = 1e-6                      # root_finder 的绝对误差
+
+# Subcycle
 CFL_subcycle = 0.5                   # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle
 subcycle_adaptive = true             # dt_subcycle 是否在子循环中自适应调整
-max_iter = 1                         # root_finder 的最大迭代次数，默认为 1 (半隐式)
-rel_tol = 1e-6                       # root_finder 的相对误差
-abs_tol = 1e-6                       # root_finder 的绝对误差
+
+# Limiter
+limiter_on = false                   # true: limiter on
 T_floor = 1e2                        # Cooling 的温度 floor
+
 #TODO 以下待实现
 root_finder = Newton                 # 可选值: Newton, FixedPoint, Bisection, ...
-
-limiter_on                     = false     # true: limiter on
-use_prim_in_cooling            = true      # true: use prim
-source_term_position           = InSourceTerm          # InSourceTerm, AfterSourceTerm, UserWorkInLoop

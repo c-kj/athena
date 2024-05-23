@@ -98,7 +98,7 @@ void SuperNovae::GetSupernovaeToInject(const Real time, const Real dt) {
   // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
   supernova_to_inject = {}; // 每次都要先清空
   for (SuperNova& SN : supernova_list) {
-    for (Real& SN_time : SN.time_list) {
+    for (Real SN_time : SN.time_list) {
       if (time <= SN_time && SN_time < time + dt) {
         supernova_to_inject.push_back(&SN); // &SN 解引用，取 SN 的地址，也就是一个指向 SN 的指针
       }
@@ -111,8 +111,8 @@ void SuperNovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
             AthenaArray<Real> &cons_scalar) {
 
-  const Real& mesh_time = pmb->pmy_mesh->time;
-  const Real& mesh_dt = pmb->pmy_mesh->dt;
+  const Real mesh_time = pmb->pmy_mesh->time;
+  const Real mesh_dt = pmb->pmy_mesh->dt;
 
   // 当前调用 SourceTerm 时的注入比例。
   // 对于 AfterSourceTerm 和 UserWorkInLoop，传入的 dt 都是 mesh_dt，从而 inject_ratio = 1.0

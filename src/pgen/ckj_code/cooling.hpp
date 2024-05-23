@@ -13,9 +13,10 @@
 
 // CoolingModel 是各种冷却函数的基类
 //* 把 CoolingModel 写成类，本来是为了实现对应的 Jacobian。但目前 Jacobian 并没有用到，所以也没啥意义……
-class CoolingModel {
-public:
-  virtual ~CoolingModel() {}
+struct CoolingModel {
+  virtual ~CoolingModel() = default;
+
+  static std::unique_ptr<CoolingModel> Create(const std::string &cooling_model);
 
   // 返回冷却函数的值 (in cgs unit)
   Real CoolingFunction(Real T_cgs) const {
@@ -24,25 +25,23 @@ public:
   }
 
   virtual Real CoolingCurve(Real T_cgs) const = 0;  // CoolingCurve 不应直接使用，因为它没有对输入的 T 做检查。
-  virtual Real Jacobian(Real T_cgs) const = 0;  //* 目前用不上这个 Jacobian，而是直接都从有限差分获得。
 
-  static std::unique_ptr<CoolingModel> Create(const std::string &cooling_model);
-
-protected:
-  const Real min_dT = std::sqrt(std::numeric_limits<Real>::epsilon());
+  // Jacobian 是虚函数但不是纯虚函数，这里提供默认实现
+  virtual Real Jacobian(Real T_cgs) const {
+    throw std::runtime_error("目前并不需要使用 CoolingModel 的 Jacobian！");  // 因为真正需要计算的导数是在 Newton-Raphson 求根时，在那里计算导数更方便，无需考虑复合函数的导数转换
+#if false
+    auto cooling_curve = [this](Real T_cgs) { return CoolingCurve(T_cgs); };
+    return Cooling::FiniteDifferenceDerivative(cooling_curve, T_cgs);
+#endif
+  };
 };
 
-class Draine_2011 : public CoolingModel {
-public:
+struct Draine_2011 : public CoolingModel {
   Real CoolingCurve(Real T_cgs) const override;
-
-  Real Jacobian(Real T_cgs) const override;
 };
 
-class Model2 : public CoolingModel {
-public:
+struct OtherModel : public CoolingModel {
   Real CoolingCurve(Real T_cgs) const override;
-
   Real Jacobian(Real T_cgs) const override;
 };
 
@@ -50,17 +49,15 @@ public:
 struct Cooling {
   Cooling() = default;  // 默认构造函数。需要这个才能在声明 Cooling cooling 时初始化。不过如果改用指针，可能就不需要这个了。
   Cooling(ParameterInput *pin, Mesh *pmy_mesh);
-  
-  // Real CoolingFunction(Real T_cgs) const;
 
   Real Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt) const;
-  static Real RootFinder(const std::function<Real(Real)>& func, Real y0, int max_iter, Real rtol, Real atol);
+  static Real RootFinder(const std::function<Real(Real)>& func, Real x0, int max_iter, Real rel_tol, Real abs_tol);
   static Real FiniteDifferenceDerivative(const std::function<Real(Real)>& func, Real x);
   // void Limiter();
 
-  Real CoolingRate(const Real &rho, const Real &P) const;
+  Real CoolingRate(const Real rho, const Real P) const;
 
-  Real CoolingTimeScale(const Real &rho, const Real &P) const;
+  static Real CoolingTimeScale(const Real E_thermal, const Real cooling_rate);
   Real CoolingTimeStep(MeshBlock *pmb) const;
 
   void CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
