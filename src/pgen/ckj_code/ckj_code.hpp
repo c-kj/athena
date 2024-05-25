@@ -1,6 +1,6 @@
 #pragma once
 
-// 用于在多个自定义文件中 include 的声明
+// 这里放一些用于在多个自定义文件中 include 的声明。
 
 #include <map>
 
@@ -13,4 +13,19 @@ static std::unordered_map<std::string, SourceTermPosition> source_term_position_
   {"InSourceTerm", SourceTermPosition::InSourceTerm},
   {"AfterSourceTerm", SourceTermPosition::AfterSourceTerm},
   {"UserWorkInLoop", SourceTermPosition::UserWorkInLoop}
+};
+
+// 元素丰度，用于计算 mu，从而计算温度 T。目前用在设定初值、计算 Cooling 上。
+// 目前暂时都 hard code 为常量。
+  // 如果要在 input file 中设定，则需要写构造函数，接收 ParameterInput *pin。
+  // 如果要改为动态演化，那么就是逐点的了，需要重构。
+struct Abundance {
+  //* 这里修改的话，要在 python 后处理中同步修改。
+  // 设定元素丰度（H, He, Metal 的质量分数）
+  static constexpr Real X_H = 0.7, X_Metal = 0.01295;  //? 这是什么丰度？太阳的？
+  // X_H = 1.0, X_Metal = 0.0;   // 纯 H
+  static constexpr Real X_He = 1.0 - X_H - X_Metal;
+
+  static constexpr Real mu = 4.0/(5*X_H + 3 - X_Metal);  //? mu 取什么值？
+  static constexpr Real mu_e = 2.0/(1+X_H);
 };

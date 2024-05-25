@@ -8,7 +8,7 @@
 #include "my_outputs.hpp"
 
 
-Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
+Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
 
   //TODO 要不要用初始化列表？
   // 使用初始化列表的主要好处：可以初始化 const 和 引用 类型的成员变量
@@ -48,16 +48,6 @@ Cooling::Cooling(ParameterInput *pin, Mesh *pmy_mesh): punit(pmy_mesh->punit) { 
   limiter_on = pin->GetOrAddBoolean("cooling", "limiter_on", false);  // cooling 的结尾是否要用 limiter 限制
   T_floor_cgs = pin->GetOrAddReal("cooling", "T_floor", 1e2);
 
-
-  // 设定元素丰度（H, He, Metal 的质量分数） //* 目前暂时放在 Cooling 类的成员变量中，但如果组分要演化，则再考虑更改。
-  X_H = 0.7, X_Metal = 0.01295;  //? 这是什么丰度？太阳的？
-  // X_H = 1.0, X_Metal = 0.0;   // 纯 H
-  X_He = 1.0 - X_H - X_Metal;
-
-  mu = 4.0/(5*X_H + 3 - X_Metal);  //? mu 取什么值？
-  mu_e = 2.0/(1+X_H);
-
-
 }
 
 
@@ -69,6 +59,7 @@ Real Cooling::CoolingRate(const Real rho, const Real P) const {
 
   // 计算数密度 n
   Real rho_cgs = rho * punit->code_density_cgs;
+  //TODO 检查这里的公式对吗？
   // Real n_cgs = rho_cgs / (mu * Constants::hydrogen_mass_cgs); 
   Real n_e_cgs = rho_cgs / (mu_e * Constants::hydrogen_mass_cgs);
   Real n_H_cgs = rho_cgs * X_H / Constants::hydrogen_mass_cgs;  //? 这么算适用于 Draine 2011 吗？ 适用于其他 Cooling Function 吗？

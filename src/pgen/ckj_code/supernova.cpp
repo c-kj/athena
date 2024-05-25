@@ -76,7 +76,7 @@ std::vector<SuperNova> read_supernova_list(ParameterInput *pin, const int dim) {
 
 
 // SuperNovae 的构造函数
-SuperNovae::SuperNovae(ParameterInput *pin, Mesh *pmy_mesh) : punit(pmy_mesh->punit), ndim(pmy_mesh->ndim) {
+SuperNovae::SuperNovae(Mesh *pmy_mesh, ParameterInput *pin) : punit(pmy_mesh->punit), ndim(pmy_mesh->ndim) {
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);  //* 目前 SN_flag 设为一个 int，是为了以后可能会有多种 SN 的情况（暂时也没想出来）
   if (SN_flag > 0) {
     if ( !NON_BAROTROPIC_EOS ) {

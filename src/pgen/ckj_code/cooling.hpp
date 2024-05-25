@@ -48,7 +48,7 @@ struct OtherModel : public CoolingModel {
 
 struct Cooling {
   Cooling() = default;  // 默认构造函数。需要这个才能在声明 Cooling cooling 时初始化。不过如果改用指针，可能就不需要这个了。
-  Cooling(ParameterInput *pin, Mesh *pmy_mesh);
+  Cooling(Mesh *pmy_mesh, ParameterInput *pin);
 
   Real Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt) const;
   static Real RootFinder(const std::function<Real(Real)>& func, Real x0, int max_iter, Real rel_tol, Real abs_tol);
@@ -93,8 +93,11 @@ struct Cooling {
   Real T_floor_cgs;
 
   // Real gamma; //* 不用 gamma，以兼容 General EoS
-  Real X_H, X_He, X_Metal;
-  Real mu, mu_e;
+
+  // 关于各种类粒子的丰度，所需要的参数，从 Abundance 类中获取。目前设为 static constexpr。
+  static constexpr Real mu = Abundance::mu;
+  static constexpr Real mu_e = Abundance::mu_e;
+  static constexpr Real X_H = Abundance::X_H;
 
   
 };

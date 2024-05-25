@@ -53,7 +53,7 @@ std::vector<SuperNova> read_supernova_list(ParameterInput *pin, const int ndim) 
 struct SuperNovae {
 public:
   SuperNovae() = default; // 默认构造函数。需要这个才能在声明 SuperNovae supernovae 时初始化。不过如果改用指针，可能就不需要这个了。
-  SuperNovae(ParameterInput *pin, Mesh *pmy_mesh);
+  SuperNovae(Mesh *pmy_mesh, ParameterInput *pin);
 
   Units *punit;
   int ndim;
