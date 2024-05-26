@@ -123,8 +123,6 @@ GM_BH = 1
 R_in = 0.1             # CHANGEME: Sink radius 需要根据最小网格的大小来调整
 R_out = 1              
 rho_in_BH = 1e-4
-rho_init = 1           # TODO 改用 n 和 mu？
-E_tot_init = 400.0     # CHANGEME: 初始总能量  #TODO 改用 声速 or 温度？
 
 
 <debug>
@@ -140,12 +138,12 @@ level_1 = 5
 point_2 = 0.0, 0.0, 0.0
 level_2 = 5
 
-###### TODO 有待实现 ######
+
 <initial_condition>
-init_cond_type = uniform   # 可选值：uniform, power_law, approximate_Bondi, rotation
-# rho_at_boundary = 1.   # 暂时不用这个，而是用 <problem> 里的 rho_init
-# E_tot_at_boundary = 1. # 暂时不用这个，而是用 <problem> 里的 E_tot_init
-power_law_index = -1.5   #?
+init_cond_type = uniform   # 可选值：uniform, power_law, approximate_Bondi, heart, rotation
+n_init_cgs = 1e4           # 初始粒子数密度，单位 cm**-3
+T_init_cgs = 1e4           # 初始温度，单位 K
+power_law_index = -1.5     # power_law 的指数。-1.5 为 free-fall Bondi
 alpha = 0.333
 
 <supernova>

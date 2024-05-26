@@ -50,10 +50,6 @@
 #include "ckj_code/my_outputs.hpp"
 
 
-Real approx_Bondi_rho_profile(Real alpha, Real R_Bondi, Real r) {
-  return pow(1 + alpha * R_Bondi / r, 1.5);
-}
-
 // 用于在 SourceTerm 中判断当前是否为最后一个 stage。目前使用 dt_ratio 来判断。
 inline bool IsLastStage(const Real dt_ratio) {
   // 目前看来，我猜测 orbital_advection 和 integrator 不能在运行时动态修改，但可以在 restart 时通过 cmd 或 input file 更改。因此，只需在 InitUserMeshData 中拿到 integrator 即可。但有待验证。
@@ -165,16 +161,12 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         }
 
         //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
+        //? 或者，应该用边界处理？看看其他论文怎么做的，问问 Kohei。
+        //* 也许还需要允许选择不同的处理方式？不一定非得保持初值？尤其是对于 approx_Bondi 这种。
         // TODO 或许可以改为继承该格子之前的值？但怎么操作呢？在 source term 里面不知道能不能做这件事
         // 应该可以把 ProblemGenerator 里的函数抽象出来，然后在这里调用
         if (r > R_out) {
-          cons(IDN,k,j,i) = rho_init;
-          cons(IM1,k,j,i) = 0.0;
-          cons(IM2,k,j,i) = 0.0;
-          cons(IM3,k,j,i) = 0.0;
-          if (NON_BAROTROPIC_EOS) {
-            cons(IEN,k,j,i) = E_tot_init;
-          }
+          initial_condition->SetSingleCell(pmb, i, j, k);
         }
 
         // debug 信息：逐个格点检查 rho 是否为 nan
@@ -222,6 +214,7 @@ Real MyTimeStep(MeshBlock *pmb) {
 //========================================================================================
 // 自定义 hst Output
 //========================================================================================
+
 // hst_NaN 用于在某些配置下，直接输出 nan。这样在读取时就可以很容易发现相应的 hst 输出是不启用的。
 // 在 EnrollUserHistoryOutput 时，使用三目运算符来使用 hst_NaN，这样应该比在相应的 hst function 里返回 NaN 要更快一点。
 inline Real hst_NaN(MeshBlock *pmb, int iout) {
@@ -293,14 +286,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // 从 input file 中读取参数，存到 pgen 文件的全局变量中
   //TODO GM_BH 改为使用以 Msun 为单位的 M_BH
-  //TODO 给这几个变量设定默认值
+  //TODO 给这几个变量设定默认值？
   GM_BH = pin->GetReal("problem","GM_BH");
   R_in = pin->GetReal("problem","R_in");
   R_out = pin->GetReal("problem","R_out");
   rho_in_BH = pin->GetReal("problem","rho_in_BH");
-  rho_init = pin->GetReal("problem","rho_init");
-  E_tot_init = pin->GetReal("problem", "E_tot_init");
 
+  //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时、跨 MPI rank 的一致性。
+  initial_condition = std::unique_ptr<InitialCondition>(new InitialCondition(this, pin));
 
   cooling = Cooling(this, pin);  // 初始化 cooling
 
@@ -371,121 +364,7 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
 // 调用时机：程序启动时（应该不包括 restart 时？）
 // 函数用途：设定初始条件（每个 MeshBlock 的）
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {  
-  init_cond_type = pin->GetOrAddString("initial_condition","init_cond_type","uniform");
-  power_law_index = pin->GetOrAddReal("initial_condition","power_law_index",0.0);   // 一般情况下是负数
-  alpha = pin->GetOrAddReal("initial_condition","alpha",0.3333333);
-
-  if (init_cond_type == "uniform") {
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js; j<=je; j++) {
-        for (int i=is; i<=ie; i++) {
-          phydro->u(IDN,k,j,i) = rho_init;
-
-          phydro->u(IM1,k,j,i) = 0.0;
-          phydro->u(IM2,k,j,i) = 0.0;
-          phydro->u(IM3,k,j,i) = 0.0;
-
-          if (NON_BAROTROPIC_EOS) {
-            phydro->u(IEN,k,j,i) = E_tot_init;
-          }
-        }
-      }
-    }
-  }
-
-  // 幂律初值，密度和能量遵循相同的幂律，初速度为 0。初始声速为 gamma*(gamma-1)*E_tot/rho
-  if (init_cond_type == "power_law") {
-    Real x1,x2,x3,r;
-    for (int k=ks; k<=ke; k++) {
-      x3 = pcoord->x3v(k);
-      for (int j=js; j<=je; j++) {
-        x2 = pcoord->x2v(j);
-        for (int i=is; i<=ie; i++) {
-          x1 = pcoord->x1v(i);
-          r = sqrt(x1*x1 + x2*x2 + x3*x3);
-          phydro->u(IDN,k,j,i) = rho_init * pow(r/R_out, power_law_index);
-
-          phydro->u(IM1,k,j,i) = 0.0;
-          phydro->u(IM2,k,j,i) = 0.0;
-          phydro->u(IM3,k,j,i) = 0.0;
-
-          if (NON_BAROTROPIC_EOS) {
-            phydro->u(IEN,k,j,i) = E_tot_init * pow(r/R_out, power_law_index);
-          }
-        }
-      }
-    }
-  }
-
-  // approximate_Bondi: 初速度 = 0，密度和能量遵循 Bondi profile 的近似解
-  if (init_cond_type == "approximate_Bondi") {
-    Real gamma = peos->GetGamma();
-    Real R_Bondi = 2 * GM_BH / (gamma*(gamma-1)*E_tot_init/rho_init);
-    //TODO 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改
-    Real rho_at_boundary = rho_init;
-    Real E_tot_at_boundary = E_tot_init;  
-    Real rho_inf = rho_at_boundary / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
-
-
-    Real x1,x2,x3,r;
-    for (int k=ks; k<=ke; k++) {
-      x3 = pcoord->x3v(k);
-      for (int j=js; j<=je; j++) {
-        x2 = pcoord->x2v(j);
-        for (int i=is; i<=ie; i++) {
-          x1 = pcoord->x1v(i);
-          r = sqrt(x1*x1 + x2*x2 + x3*x3);
-          phydro->u(IDN,k,j,i) = rho_inf * approx_Bondi_rho_profile(alpha, R_Bondi, r);
-
-          phydro->u(IM1,k,j,i) = 0.0;
-          phydro->u(IM2,k,j,i) = 0.0;
-          phydro->u(IM3,k,j,i) = 0.0;
-
-          if (NON_BAROTROPIC_EOS) {
-            phydro->u(IEN,k,j,i) = E_tot_at_boundary * pow(phydro->u(IDN,k,j,i) / rho_at_boundary, gamma) ;
-          }
-        }
-      }
-    }
-  }
-
-  //TODO heart 的初始条件，等写好了 region 类之后整理
-  if (init_cond_type == "heart") {
-    std::string block = "initial_condition/heart";
-    Real a = pin->GetOrAddReal(block, "a", 3.3);
-    Real b = pin->GetOrAddReal(block,"b", 0.75);
-    Real heart_size = pin->GetOrAddReal(block,"heart_size", 1.0);
-    Real rho_inside = pin->GetReal(block,"rho_inside");
-    Real E_tot_inside = pin->GetReal(block,"E_tot_inside");
-
-    Heart heart({0, 0, 0}, heart_size, a, b); // 构造一个心形区域。目前默认 center 是 (0,0,0)
-
-    Real x,y,z;
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js; j<=je; j++) {
-        for (int i=is; i<=ie; i++) {
-          z = pcoord->x3v(k);
-          y = pcoord->x2v(j);
-          x = pcoord->x1v(i);
-
-          if ( heart.contains({x, y, z}) ) {
-            phydro->u(IDN,k,j,i) = rho_inside;
-            phydro->u(IEN,k,j,i) = E_tot_inside;
-          } else {
-            phydro->u(IDN,k,j,i) = rho_init;
-            phydro->u(IEN,k,j,i) = E_tot_init;
-          }
-
-          phydro->u(IM1,k,j,i) = 0.0;
-          phydro->u(IM2,k,j,i) = 0.0;
-          phydro->u(IM3,k,j,i) = 0.0;
-
-
-        }
-      }
-    }
-  };
-
+  initial_condition->SetInitialCondition(this);
 }
 
 
@@ -563,7 +442,6 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
     } else {
       output_in_line();
     }
-    //TODO 在输出 output 时，也把当前时间输出到 ./info 下一个单独的文件，这样就不用从每个 ds 中单独读取了。但需要找到 pin 中合适的 <output[n]> block
   }
   return;
 }
