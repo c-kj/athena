@@ -35,10 +35,9 @@ Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) { 
   if (CFL_cooling <= 0.0) {throw std::invalid_argument("CFL_cooling must be positive!");}
 
   // 配置 RootFinder
-  //TODO 有待调整：默认 max_iter = 10? tol 应该为多少？
-  max_iter = pin->GetOrAddInteger("cooling", "max_iter", 1);
-  rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);
-  abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 1e-6);
+  max_iter = pin->GetOrAddInteger("cooling", "max_iter", 10);  // 默认 10 次迭代，应该足够了。有 rel_tol 存在，一般应该不至于需要 10 次。
+  rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);     //? 多少合适？
+  abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 0);        // 默认绝对容差为 0，因为这个值不太好把握，容易造成一次迭代都没有就直接退出。
 
   // 配置 Subcycle
   CFL_subcycle = pin->GetOrAddReal("cooling", "CFL_subcycle", 1.0);
@@ -99,6 +98,7 @@ Real Cooling::CoolingTimeStep(MeshBlock *pmb) const {
 }
 
 // 求解 dy/dt = RHS(y)，给出 dy
+// 目前这里的 y 指代的是 E_thermal
 // 这里假定了 RHS 不是 t 的函数。对于 Cooling 来说，总是成立的。
 Real Cooling::Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt) const {
   Real dy = 0.0;
@@ -128,14 +128,18 @@ Real Cooling::Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt)
 }
 
 // 求解 func(x) == 0 的方程，给出 x 的根。初始猜测为 x0
+// 目前这里的 x 指代的是 dy，即 d E_thermal
 Real Cooling::RootFinder(const std::function<Real(Real)>& func, Real x0, int max_iter, Real rel_tol, Real abs_tol) {
   Real x = x0;
+  if (func(x) == 0.0) {return x;}  // 如果 Cooling Function 给出的 dE == 0，那么无需求根，直接返回。这也避免了对于临近 x，func 都为 0 时会导致的 0/0 问题。
   for (int i = 0; i < max_iter; ++i) {  // 最多迭代 max_iter 次。若 max_iter 为 1，则为 ODE 的半隐式方法
-    Real tol = rel_tol * std::abs(x) + abs_tol;  // 在每次迭代中，都根据 x 的值重新计算 tol
-    if (std::abs(func(x)) < tol) { break; } // 如果满足精度要求，则退出循环
+    //* 目前，在进行迭代前进行容差判断。坏处：如果容差过大（abs_tol 不好把握），可能连一次半隐式迭代都没有，得到虚假的 dE = 0.
+    Real tol = rel_tol * std::abs(x) + abs_tol;  // 在每次迭代中，都根据 x 的值重新计算 tol  //TODO 这里的容差究竟应该如何计算，有待重新考虑。
+    if (std::abs(func(x)) <= tol) { break; } // 如果满足精度要求，则退出循环
+
     // Newton-Raphson 迭代
     Real df_dx = FiniteDifferenceDerivative(func, x);  // 目前使用有限差分来计算导数
-    x = x - func(x) / df_dx;
+    x = x - func(x) / df_dx;  //? 如果 df_dx == 0 怎么办？
   }
   return x;
 }
@@ -214,6 +218,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         cons(IEN,k,j,i) += dE;
 
         pmb->user_out_var(I_cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中
+        // 这里储存 dE/dt 而非 dE 是因为 dE/dt 才是物理的，不涉及人为的 dt。而且如果放在 InSourceTerm 中，那么会被调用半步。
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
       }
     }
@@ -238,7 +243,7 @@ std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_mo
 // Drain 2011, ISM textbook, Sec 34.1, eqn 34.2 & 34.3。
 // 用于估计 SN shock cooling 的简单幂律函数。高于 10^(7.3) K 的部分是轫致辐射主导的。
 Real Draine_2011::CoolingCurve(Real T_cgs) const {
-  if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ){
+  if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ) {
     return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(-1.18348e5/T_cgs); //TEMP 指数截断，具体的值有待调整
   } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
     return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);

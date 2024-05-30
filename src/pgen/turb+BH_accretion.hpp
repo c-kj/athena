@@ -30,6 +30,7 @@
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
 
 Real GM_BH, R_in, R_out, rho_in_BH;
+Real M_BH;
 
 
 

@@ -119,9 +119,9 @@ rseed      = -1   # if non-negative, seed will be set by hand (slow PS generatio
 
 <problem>
 turb_flag  = 0         # 1 for decaying, 2 (impulsive) or 3 (continuous) for driven turbulence
-GM_BH = 1
-R_in = 0.1             # CHANGEME: Sink radius 需要根据最小网格的大小来调整
-R_out = 1              
+M_BH  = 0              # 中心黑洞的质量，Unit: Msun
+R_in  = 0              # CHANGEME: Sink radius 需要根据最小网格的大小来调整
+R_out = inf              
 rho_in_BH = 1e-4
 
 
@@ -175,9 +175,9 @@ implicit     = true                  # 若为 true 则使用隐式求解器，�
 CFL_cooling  = 0.5                   # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
 
 # RootFinder
-max_iter = 1                         # root_finder 的最大迭代次数，默认为 1 (半隐式)
-rel_tol  = 1e-6                      # root_finder 的相对误差
-abs_tol  = 1e-6                      # root_finder 的绝对误差
+max_iter = 10                                # root_finder 的最大迭代次数，默认为 10
+rel_tol  = 1e-6                              # root_finder 的相对误差
+abs_tol  = 0                                 # root_finder 的绝对误差。默认为 0，防止 0 次迭代就退出
 
 # Subcycle
 CFL_subcycle = 0.5                   # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle

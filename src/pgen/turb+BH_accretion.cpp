@@ -285,11 +285,13 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   beta_last_stage = beta_last_stage_map.at(integrator);  // 使用 .at 来获取值，如果 key 不存在会抛出异常。
 
   // 从 input file 中读取参数，存到 pgen 文件的全局变量中
-  //TODO GM_BH 改为使用以 Msun 为单位的 M_BH
   //TODO 给这几个变量设定默认值？
-  GM_BH = pin->GetReal("problem","GM_BH");
-  R_in = pin->GetReal("problem","R_in");
-  R_out = pin->GetReal("problem","R_out");
+  Real M_BH_in_Msun = pin->GetOrAddReal("problem","M_BH", 0.0);
+  M_BH = M_BH_in_Msun * punit->solar_mass_code;
+  GM_BH = M_BH * punit->grav_const_code;  //TODO 其他地方是否要改为只使用 M_BH 而抛弃 GM_BH？
+
+  R_in = pin->GetOrAddReal("problem","R_in", 0.0);
+  R_out = pin->GetOrAddReal("problem","R_out", std::numeric_limits<Real>::max());
   rho_in_BH = pin->GetReal("problem","rho_in_BH");
 
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时、跨 MPI rank 的一致性。
@@ -338,10 +340,11 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollUserHistoryOutput(1, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
   EnrollUserHistoryOutput(2, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
 
-  // Print unit 相关信息
   if (Globals::my_rank == 0) {
+    // Print unit 相关信息
     punit->PrintCodeUnits();
     punit->PrintConstantsInCodeUnits();
+    //TODO Print 自定义的参数
   }
 
   return;
