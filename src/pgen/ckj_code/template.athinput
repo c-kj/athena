@@ -9,78 +9,76 @@ configure = --prob turb+BH_accretion -fft --fftw_path="/opt/homebrew/opt/fftw" -
 
 
 <job>
-problem_id = TEMPLATE    # 输出文件的 basename。常用的有: Bondi, SN,
+problem_id  = TEMPLATE         # 输出文件的 basename。常用的有: Bondi, SN,
 
 <output1>
-file_type  = hst              # History data dump
-dcycle     = 1                # 每个步长都输出。hst 文件应该不会太大，所以可以很密集。
+file_type   = hst              # History data dump
+dcycle      = 1                # 每个步长都输出。hst 文件应该不会太大，所以可以很密集。
+data_format = %21.14e          # 前面的数字为总长度，后面的数字为小数点后的长度。%21.14e 是 double 类型的最大精度
 
 <output2>
-file_type  = hdf5             # HDF5 Output 是主要的输出数据
-dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim,uov         # 只输出主变量 prim 和 uov，cons 变量由后处理计算，减小输出体积。注意用 ',' 分隔，不能有空格！
-id         = prim             # output id
-xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
+file_type   = hdf5             # HDF5 Output 是主要的输出数据
+dt          = 1e-2             # dt 适当大一点，避免输出过多
+variable    = prim,uov         # 只输出主变量 prim 和 uov，cons 变量由后处理计算，减小输出体积。注意用 ',' 分隔，不能有空格！
+id          = prim             # output id
+xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output3>
-file_type  = rst              # Restart File，用于断点续算
-dt         = inf              # 设为 inf，则只输出初始和最终的 Restart File
+file_type   = rst              # Restart File，用于断点续算
+dt          = inf              # 设为 inf，则只输出初始和最终的 Restart File
 
 # 以下是一些 slice 和 sum 的 output。体积小，因而后处理更快、可以输出更频繁。还可添加更多 outputs。
 <output4>
-file_type  = hdf5             # slice 输出
-dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
-id         = x3_slice_0e0     # output id
-x3_slice   = 0.0              # slice position in X3
-xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
+file_type   = hdf5             # slice 输出
+dt          = 1e-3             # slice 的输出可以更密集
+variable    = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
+id          = x3_slice_0e0     # output id
+x3_slice    = 0.0              # slice position in X3
+xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output5>
-file_type  = hdf5             # sum 输出
-dt         = 0.01             # dt 适当大一点，避免输出过多
-variable   = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
-id         = x3_sum           # output id
-x3_sum     = true             # sum over X3
-xdmf       = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
+file_type   = hdf5             # sum 输出
+dt          = 1e-3             # sum 的输出可以相对密集
+variable    = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
+id          = x3_sum           # output id
+x3_sum      = true             # sum over X3
+xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 
 <time>
-cfl_number = 0.3         # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim       = -1          # cycle limit # -1 代表无穷大
-tlim       = 2.          # time limit  # 总时间要比 t_freefall 更长
-integrator  = rk2        # time integration algorithm
-xorder      = 2          # order of spatial reconstruction
-ncycle_out  = 1          # interval for stdout summary info
+cfl_number  = 0.3              # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim        = -1               # cycle limit # -1 代表无穷大
+tlim        = 1.0              # time limit  # 总时间要比 t_freefall 更长
+integrator  = rk2              # time integration algorithm
+xorder      = 2                # order of spatial reconstruction
+ncycle_out  = 1                # interval for stdout summary info
 
 
 # 注意在计算区域的两侧留出足够的额外空间，至少要 2*dx，这样方便计算散度、旋度等
 <mesh>
-nx1        = 64          # Number of zones in X1-direction
-x1min      = -1.1        # minimum value of X1
-x1max      =  1.1        # maximum value of X1
-ix1_bc     = outflow     # inner-X1 boundary flag
-ox1_bc     = outflow     # outer-X1 boundary flag
+nx1         = 64               # Number of zones in X1-direction
+x1min       = -1.1             # minimum value of X1
+x1max       =  1.1             # maximum value of X1
+ix1_bc      = outflow          # inner-X1 boundary flag
+ox1_bc      = outflow          # outer-X1 boundary flag
 
-nx2        = 64          # Number of zones in X2-direction
-x2min      = -1.1        # minimum value of X2
-x2max      =  1.1        # maximum value of X2
-ix2_bc     = outflow     # inner-X2 boundary flag
-ox2_bc     = outflow     # outer-X2 boundary flag
+nx2         = 64               # Number of zones in X2-direction
+x2min       = -1.1             # minimum value of X2
+x2max       =  1.1             # maximum value of X2
+ix2_bc      = outflow          # inner-X2 boundary flag
+ox2_bc      = outflow          # outer-X2 boundary flag
 
-nx3        = 64          # Number of zones in X3-direction
-x3min      = -1.1        # minimum value of X3
-x3max      =  1.1        # maximum value of X3
-ix3_bc     = outflow     # inner-X3 boundary flag
-ox3_bc     = outflow     # outer-X3 boundary flag
+nx3         = 64               # Number of zones in X3-direction
+x3min       = -1.1             # minimum value of X3
+x3max       =  1.1             # maximum value of X3
+ix3_bc      = outflow          # inner-X3 boundary flag
+ox3_bc      = outflow          # outer-X3 boundary flag
 
-refinement     = adaptive  # AMR
-numlevel       = 5         # AMR 的最大层数（root = 1, 和 SMR 不同）
-derefine_count = 5         # derefine 前的时间步数
+refinement     = none          # 可选项：none, static, adaptive
+numlevel       = 5             # AMR 的最大层数（root = 1, 和 SMR 不同）
+derefine_count = 5             # derefine 前的时间步数
 
-# refinement     = static    # SMR（目前不启用）
-# refinement     = none      # 均匀网格（目前不启用）
-
-num_threads = 8            # OpenMP 并行线程数。MPI 并行时需要注释掉这一行
+# num_threads = 8               # OpenMP 并行线程数。MPI 并行时需要注释掉这一行
 
 
 <meshblock>             # CHANGEME: meshblock 的大小，注意要能被 Root Grid 整除
@@ -106,15 +104,15 @@ gamma           = 1.666666666667   # gamma = C_p/C_v   # 取 gamma = 5/3，单�
 grav_acc3       = 0.0              # 均匀重力场（内置但无文档）。
 
 
-<turbulence>      # 这里的 n 实际上是 L/λ，即区域内包含的波的个数。对应的物理尺度为 λ = L/n in code units
-dedt       = 10   # Energy injection rate (for driven) or Total energy (for decaying)
-nlow       = 0    # cut-off wavenumber at low-k    # 最低为 1，对应物理尺度为 L （这里可以取到 0 或负数，应该是指包含了所有更大尺度？）
-nhigh      = 16   # cut-off wavenumber at high-k   # 最高为 1/2 * nx (Nyquist 频率，对应物理尺度为 2*dx)
-expo       = 2.0  # power-law exponent
-tcorr      = 0.1  # correlation time for OU process (both impulsive and continuous)
-dtdrive    = 0.1  # time interval between perturbation (impulsive)
-f_shear    = 0.5  # the ratio of the shear component
-rseed      = -1   # if non-negative, seed will be set by hand (slow PS generation)
+<turbulence>                       # 这里的 n 实际上是 L/λ，即区域内包含的波的个数。对应的物理尺度为 λ = L/n in code units
+dedt       = 10                    # Energy injection rate (for driven) or Total energy (for decaying)
+nlow       = 0                     # cut-off wavenumber at low-k    # 最低为 1，对应物理尺度为 L （这里可以取到 0 或负数，应该是指包含了所有更大尺度？）
+nhigh      = 16                    # cut-off wavenumber at high-k   # 最高为 1/2 * nx (Nyquist 频率，对应物理尺度为 2*dx)
+expo       = 2.0                   # power-law exponent
+tcorr      = 0.1                   # correlation time for OU process (both impulsive and continuous)
+dtdrive    = 0.1                   # time interval between perturbation (impulsive)
+f_shear    = 0.5                   # the ratio of the shear component
+rseed      = -1                    # if non-negative, seed will be set by hand (slow PS generation)
 
 
 <problem>
@@ -130,7 +128,7 @@ debug = 0                  # 控制 debug 的输出等级
 
 
 <AMR>                      # 我自定义的 AMR 参数
-time_start_AMR = 4         # AMR 的开始时间
+time_start_AMR = 0         # AMR 的开始时间
 
 <AMR/point>                # 这里的 level 和 SMR 的 level 概念一致，root=0. 而 <mesh> 的 numlevel 则是 root=1，因为这是 level 的数目
 point_1 = 0.0, 0.0, 0.0
@@ -148,32 +146,32 @@ alpha = 0.333                                # approximate_Bondi 的参数
 velocity_factor = 1.0                        # 速度的额外系数。目前只在 approximate_Bondi 中使用
 
 <supernova>
-SN_flag = 1                           # 控制 SN 的开关
+SN_flag = 1                                  # 控制 SN 的开关
 
-SN_1_time = 0.0, 0.2                  # 爆发的时间列表。可选格式：单个时间（0.3）；多个时间的列表（.0, .2, .4, .6）
-SN_1_energy = 1.0                     # 单次注入的总能量，默认为 0
-SN_1_mass = 0.0                       # 单次注入的总质量，默认为 0
-SN_1_center = 0.0, 0.0, 0.0           # region 的中心，默认在原点
-SN_1_radius = 0.01                    # region 的半径
-# SN_1_mass_center = 0.0, 0.0, 0.0      # 可以单独指定 mass_region 的中心和半径。如果不指定，则与 energy_region 一致
-# SN_1_mass_radius = 0.0                
-# SN_1_region = ball                    # energy_region 和 mass_region 的种类。可选值：ball, heart
-# SN_1_velocity = 0.0, 0.0, 0.0         # SN 本身运动的速度
+SN_1_time = 0.0, 0.2                         # 爆发的时间列表。可选格式：单个时间（0.3）；多个时间的列表（.0, .2, .4, .6）
+SN_1_energy = 1.0                            # 单次注入的总能量，默认为 0. Unit: 1e51 erg
+SN_1_mass = 1.0                              # 单次注入的总质量，默认为 0. Unit: 1 Msun
+SN_1_center = 0.0, 0.0, 0.0                  # region 的中心，默认在原点
+SN_1_radius = 0.01                           # region 的半径
+# SN_1_mass_center = 0.0, 0.0, 0.0             # 可以单独指定 mass_region 的中心和半径。如果不指定，则与 energy_region 一致
+# SN_1_mass_radius = 0.0                       
+# SN_1_region = ball                           # energy_region 和 mass_region 的种类。可选值：ball, heart
+# SN_1_velocity = 0.0, 0.0, 0.0                # SN 本身运动的速度
 
 
 <units>
-unit_system = supernova              # 我自定义的 supernova 单位制, [length] = pc, [density] = m_H/cm**3, [time] = Myr
+unit_system = supernova                      # 我自定义的 supernova 单位制, [length] = pc, [density] = m_H/cm**3, [time] = Myr
 
 
 <cooling>
-cooling_model        = Draine_2011      # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
-source_term_position = InSourceTerm     # InSourceTerm, AfterSourceTerm, UserWorkInLoop
-use_prim_in_cooling  = true             # true: use prim
+cooling_model        = Draine_2011           # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
+source_term_position = InSourceTerm          # InSourceTerm, AfterSourceTerm, UserWorkInLoop
+use_prim_in_cooling  = true                  # true: use prim
 
 # Integrator
-integrator   = Euler                 # 可选值: Euler, RK4, ...
-implicit     = true                  # 若为 true 则使用隐式求解器，否则使用显式求解器。
-CFL_cooling  = 0.5                   # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
+integrator   = Euler                         # 可选值: Euler, RK4, ...
+implicit     = true                          # 若为 true 则使用隐式求解器，否则使用显式求解器。
+CFL_cooling  = 0.5                           # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
 
 # RootFinder
 max_iter = 10                                # root_finder 的最大迭代次数，默认为 10
@@ -181,12 +179,12 @@ rel_tol  = 1e-6                              # root_finder 的相对误差
 abs_tol  = 0                                 # root_finder 的绝对误差。默认为 0，防止 0 次迭代就退出
 
 # Subcycle
-CFL_subcycle = 0.5                   # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle
-subcycle_adaptive = true             # dt_subcycle 是否在子循环中自适应调整
+CFL_subcycle = 0.5                           # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle
+subcycle_adaptive = true                     # dt_subcycle 是否在子循环中自适应调整
 
 # Limiter
-limiter_on = false                   # true: limiter on
-T_floor = 1e2                        # Cooling 的温度 floor
+limiter_on = false                           # true: limiter on
+T_floor = 1e2                                # Cooling 的温度 floor
 
 #TODO 以下待实现
-root_finder = Newton                 # 可选值: Newton, FixedPoint, Bisection, ...
+root_finder = Newton                         # 可选值: Newton, FixedPoint, Bisection, ...
