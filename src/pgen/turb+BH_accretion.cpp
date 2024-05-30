@@ -299,7 +299,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   cooling = Cooling(this, pin);  // 初始化 cooling
 
-  supernovae = SuperNovae(this, pin);  // 初始化 supernovae
+  supernovae = Supernovae(this, pin);  // 初始化 supernovae
 
   if (supernovae.source_term_position <= SourceTermPosition::AfterSourceTerm && cooling.source_term_position == SourceTermPosition::UserWorkInLoop) {
     std::cout << "### WARNING: Supernova 在 SourceTerm 中/结尾 注入，而 Cooling 在 UserWorkInLoop 中。这会导致注入 SN 那一步的 Cooling TimeStep 未受限制！ \n";

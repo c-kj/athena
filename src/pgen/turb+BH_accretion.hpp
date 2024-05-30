@@ -35,7 +35,7 @@ Real M_BH;
 
 
 
-SuperNovae supernovae;
+Supernovae supernovae;
 
 
 Cooling cooling;  //* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变。如果对象很大，可能会消耗大量的栈空间。

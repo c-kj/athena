@@ -21,12 +21,20 @@
 
 
 using Vector = std::array<Real, 3>;
+using Point = std::array<Real, 3>;
 
-// 单个（组）超新星的信息
-struct SuperNova {
-  SuperNova(ParameterInput *pin, const int i, const int dim);
+// forward declaration
+struct Supernovae;
+struct SupernovaParameters;
+struct SupernovaEvent;
+
+// 单个（种）超新星的信息。目前，一个 SupernovaParameters 对象代表「一种超新星」，即所有参数相同、只有时间和位置不同的多个超新星。
+struct SupernovaParameters {
+  SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, const int i);
   
-  std::vector<Real> time_list;
+  const int ndim;
+  // std::vector<Real> time_list;
+  //TODO 这些变量为什么要在这里赋值？有必要吗？
   Real energy = 0.0;
   Real mass = 0.0;
   Vector velocity = {0, 0, 0};
@@ -39,35 +47,53 @@ struct SuperNova {
   std::string region_name;
   Real energy_density=0.0, mass_density=0.0;
 
+  std::vector<std::unique_ptr<SupernovaEvent>> event_list;
+
   // 不一定会用上的属性。目前还没写实现
   // std::string name;
   // std::string type;
     
 };
 
+// 表示单个 SN 爆炸的事件。只包含简单的信息（t,x,v 等），其他统一的参数在 SupernovaParameters 对象中。 
+struct SupernovaEvent {
+  SupernovaParameters *paras;
+  Real time;
+  Point position;
+  Vector velocity;
+  Real velocity_magnitude;
 
-std::vector<SuperNova> read_supernova_list(ParameterInput *pin, const int ndim) ;
+  SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v): 
+  paras(paras), time(t), position(x), velocity(v),
+  velocity_magnitude(std::sqrt(SQR(v[0]) + SQR(v[1]) + SQR(v[2]))) 
+  {}
+};
 
 
 // 用于存储所有超新星，控制其注入
-struct SuperNovae {
-public:
-  SuperNovae() = default; // 默认构造函数。需要这个才能在声明 SuperNovae supernovae 时初始化。不过如果改用指针，可能就不需要这个了。
-  SuperNovae(Mesh *pmy_mesh, ParameterInput *pin);
+struct Supernovae {
+  Supernovae() = default; // 默认构造函数。需要这个才能在声明 Supernovae supernovae 时初始化。不过如果改用指针，可能就不需要这个了。
+  Supernovae(Mesh *pmy_mesh, ParameterInput *pin);
 
-  Units *punit;
-  int ndim;
+  Units *punit;  // TEMP 暂时放在这个类中，考虑挪到 SupernovaParameters 中
+  int ndim;      // TEMP 暂时放在这个类中，考虑挪到 SupernovaParameters 中
   int SN_flag;
-  std::string integrator;
   
   // 目前直接把这个量设为编译时常量，不从参数文件读取。SN 在 SourceTerm 结尾注入时最佳的，能够准确控制时间并且能在当前步的 prim 中输出。
   static constexpr SourceTermPosition source_term_position = SourceTermPosition::AfterSourceTerm; // 在哪个位置注入 SN
 
+  //TODO 挪到 SupernovaParameters 类中
   Real SN_energy_unit;
   Real SN_mass_unit;
 
-  std::vector<SuperNova> supernova_list;
-  std::vector<SuperNova*> supernova_to_inject;
+  std::vector<std::unique_ptr<SupernovaParameters>> supernova_paras_list;  // 储存所有 SupernovaParameters。这里用 unique_ptr，表明所有权在此管理。
+  // 以下两个 vector 使用 raw pointer，因为 SupernovaEvent 由 SupernovaParameters 管理。
+  std::vector<SupernovaEvent*> supernova_list;  // 储存所有单个 SupernovaEvent
+  std::vector<SupernovaEvent*> supernova_to_inject;  // 储存当前时刻需要注入的超新星，在每个主循环的 cycle 中更新
+
+  void InitSupernovaParameters(ParameterInput *pin);
+  void InitSupernovaEvents();
+  void PrintInfo();
 
   void GetSupernovaeToInject(const Real time, const Real dt);
   void SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
@@ -75,6 +101,7 @@ public:
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar);
 
+  Real SupernovaeTimeStep(MeshBlock *pmb);
 
 };
 
