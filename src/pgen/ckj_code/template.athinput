@@ -140,11 +140,12 @@ level_2 = 5
 
 
 <initial_condition>
-init_cond_type = uniform   # 可选值：uniform, power_law, approximate_Bondi, heart, rotation
-n_init_cgs = 1e4           # 初始粒子数密度，单位 cm**-3
-T_init_cgs = 1e4           # 初始温度，单位 K
-power_law_index = -1.5     # power_law 的指数。-1.5 为 free-fall Bondi
-alpha = 0.333
+init_cond_type = uniform                     # 可选值：uniform, power_law, approximate_Bondi, heart, rotation
+n_init_cgs = 1e4                             # 初始粒子数密度，单位 cm**-3
+T_init_cgs = 1e4                             # 初始温度，单位 K
+power_law_index = -1.5                       # power_law 的指数。-1.5 为 free-fall Bondi
+alpha = 0.333                                # approximate_Bondi 的参数 
+velocity_factor = 1.0                        # 速度的额外系数。目前只在 approximate_Bondi 中使用
 
 <supernova>
 SN_flag = 1                           # 控制 SN 的开关

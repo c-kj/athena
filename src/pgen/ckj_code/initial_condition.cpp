@@ -1,4 +1,7 @@
+#include <limits>
+
 #include "initial_condition.hpp"
+
 
 
 // 构造函数
@@ -15,6 +18,13 @@ InitialCondition::InitialCondition(Mesh *pmesh, ParameterInput *pin):
   E_thermal_init_code = P_from_nT_cgs(n_init_cgs, T_init_cgs) / (gamma - 1.0) / punit->code_energydensity_cgs;
 }
 
+// void InitialCondition::PrintInfo() {
+//   std::cout << "Initial condition type: " << init_cond_type << "\n";
+//   std::cout << "n_init_cgs = " << n_init_cgs << "\n";
+//   std::cout << "T_init_cgs = " << T_init_cgs << "\n";
+//   std::cout << "rho_init_code = " << rho_init_code << "\n";
+//   std::cout << "E_thermal_init_code = " << E_thermal_init_code  << "\n";
+// }
 
 // 遍历每个 cell，调用 SetSingleCell 来设定初始条件
 void InitialCondition::SetInitialCondition(MeshBlock *pmb) {
@@ -50,7 +60,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
   //TODO 其他的初始条件有待测试
   // 幂律初值，密度和能量遵循相同的幂律，初速度为 0。把 init 的值理解为 R_out 处的值。
   else if (init_cond_type == "power_law") {
-    static Real R_out = pin->GetReal("initial_condition", "R_out");
+    static Real R_out = pin->GetReal("initial_condition", "R_out");  //? 从 initial_condition 这个 block 获取吗？
     static Real power_law_index = pin->GetReal("initial_condition", "power_law_index"); // 对于类 Bondi profile，一般为负值
 
     Real r = sqrt(SQR(x1) + SQR(x2) + SQR(x3));
@@ -65,20 +75,34 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
 
   // approximate_Bondi: 初速度 = 0，密度和能量遵循 Bondi profile 的近似解
   else if (init_cond_type == "approximate_Bondi") {
+    static Real velocity_factor = pin->GetOrAddReal("initial_condition","velocity_factor", 1.0);
     static Real alpha = pin->GetOrAddReal("initial_condition","alpha",1./3.);
-    static Real R_out = pin->GetReal("problem", "R_out");
-    static Real GM_BH = pin->GetReal("problem", "GM_BH");
-    static Real c_s_2 = gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code;
-    static Real R_Bondi = 2 * GM_BH / c_s_2;
+    static Real R_out = pin->GetOrAddReal("problem", "R_out", std::numeric_limits<Real>::max());
+    static Real M_BH = pin->GetOrAddReal("problem", "M_BH", 0.0) * punit->solar_mass_code;
+    static Real GM_BH = M_BH * punit->grav_const_code;
+    static Real c_s = sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );
+    static Real R_Bondi = 2 * GM_BH / SQR(c_s);
     // 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改？
     static Real rho_inf = rho_init_code / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
+
+    // 用于计算 Bondi 吸积率中的因子的函数
+    auto M_dot_factor = [](Real gamma) -> Real {
+      if (gamma >= 1.6666) return 1.0;           // gamma 接近 5/3 的情况下，需要取极限，M_dot_factor = 1
+      if (gamma == 1.0   ) return exp(3./2);  // gamma == 1 的情况下，需要取极限，M_dot_factor = exp(3/2)
+      return pow(2/(5 - 3*gamma),(5 - 3*gamma)/(2.*(gamma - 1)));
+    };
+    //BUG 这里使用的是 hydro 的 gamma，但若开启 cooling，实际上可能 isothermal 更合适。
+    //TODO 所以，考虑在 cooling_on 的情况下使用 block 内自定义的 polytropic_index 参数。但要弄清楚 c_s 的计算中使用的 gamma 应该用哪个。
+    static Real M_dot = PI * rho_inf * SQR(GM_BH) / CUBE(c_s) * M_dot_factor(gamma);  
 
     Real r = sqrt(SQR(x1) + SQR(x2) + SQR(x3));
     rho = rho_inf * approx_Bondi_rho_profile(alpha, R_Bondi, r);
     //? approximate Bondi 的 径向速度？
-    vx1 = 0.0;
-    vx2 = 0.0;
-    vx3 = 0.0;
+    Real v = M_dot / (4 * PI * SQR(r) * rho);  // 根据连续性方程计算出速度
+    v *= velocity_factor;  // 额外乘一个系数
+    vx1 = -v * x1 / r;
+    vx2 = -v * x2 / r;
+    vx3 = -v * x3 / r;
     E_thermal = E_thermal_init_code * pow(rho/rho_init_code, gamma);
   } 
 
