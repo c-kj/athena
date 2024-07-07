@@ -80,12 +80,14 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     static Real R_out = pin->GetOrAddReal("problem", "R_out", std::numeric_limits<Real>::max());
     static Real M_BH = pin->GetOrAddReal("problem", "M_BH", 0.0) * punit->solar_mass_code;
     static Real GM_BH = M_BH * punit->grav_const_code;
-    static Real c_s = sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );
+    static Real c_s = sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );  //? 这里算声速，应该使用 gamma 还是 polytropic_index?
     static Real R_Bondi = 2 * GM_BH / SQR(c_s);
     // 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改？
     static Real rho_inf = rho_init_code / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
 
-    // 用于计算 Bondi 吸积率中的因子的函数
+    static Real polytropic_index = pin->GetOrAddReal("initial_condition","polytropic_index", gamma);  // 如果 input 文件中设置了 polytropic_index，那么就用它，否则用 gamma
+
+    // 用于计算 Bondi 吸积率中的因子的函数。这里自变量 gamma 实际上是 polytropic_index
     auto M_dot_factor = [](Real gamma) -> Real {
       if (gamma >= 1.6666) return 1.0;           // gamma 接近 5/3 的情况下，需要取极限，M_dot_factor = 1
       if (gamma == 1.0   ) return exp(3./2);  // gamma == 1 的情况下，需要取极限，M_dot_factor = exp(3/2)
@@ -93,7 +95,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     };
     //BUG 这里使用的是 hydro 的 gamma，但若开启 cooling，实际上可能 isothermal 更合适。
     //TODO 所以，考虑在 cooling_on 的情况下使用 block 内自定义的 polytropic_index 参数。但要弄清楚 c_s 的计算中使用的 gamma 应该用哪个。
-    static Real M_dot = PI * rho_inf * SQR(GM_BH) / CUBE(c_s) * M_dot_factor(gamma);  
+    static Real M_dot = PI * rho_inf * SQR(GM_BH) / CUBE(c_s) * M_dot_factor(polytropic_index);  
 
     Real r = sqrt(SQR(x1) + SQR(x2) + SQR(x3));
     rho = rho_inf * approx_Bondi_rho_profile(alpha, R_Bondi, r);
@@ -103,7 +105,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     vx1 = -v * x1 / r;
     vx2 = -v * x2 / r;
     vx3 = -v * x3 / r;
-    E_thermal = E_thermal_init_code * pow(rho/rho_init_code, gamma);
+    E_thermal = E_thermal_init_code * pow(rho/rho_init_code, polytropic_index);
   } 
 
   // heart: 在心形区域内，n 和 T 设为与外部不同的值
