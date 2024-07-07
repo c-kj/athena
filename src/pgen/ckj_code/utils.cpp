@@ -121,6 +121,7 @@ std::array<Real, 3> read_array(std::string str, char delimiter) {
   return array;
 }
 
+//TODO 可以考虑用 src/utils/string_utils.cpp 中的 split 函数重写？也许功能更强一些。
 // 从字符串中读取数字列表
 // 能解析 "1"、"1,2,3"、"1,2,3,"，但不能 "1,2,3,,"
 std::vector<Real> read_vector(std::string str, char delimiter) {

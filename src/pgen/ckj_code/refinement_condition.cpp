@@ -107,7 +107,7 @@ int RefinementCondition_Gradient(MeshBlock *pmb) {
 }
 
 
-
+//TODO 把这个函数改名，避免跟其他 pgen 中的撞了？
 //? 是否有必要把函数的声明和定义分开？声明放在前面，定义放在后面？
 // 测试能不能用 AMR 来充当 SMR，初始化湍流
 int RefinementCondition(MeshBlock *pmb) {
@@ -132,6 +132,7 @@ int RefinementCondition(MeshBlock *pmb) {
   return 0;
 }
 
+//TODO 把这里的 INFINITY 改为 std::numeric_limits<Real>::max()
 void InitRefinementCondition(ParameterInput *pin) {
   // 读取自定义的 AMR 参数
   time_start_AMR = pin->GetOrAddReal("AMR", "time_start_AMR", 0.0);

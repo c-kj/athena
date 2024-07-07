@@ -3,7 +3,7 @@
 #SBATCH --qos=low
 #SBATCH -J slurm_run_athena
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=48
+#SBATCH --ntasks-per-node=64
 # 导入MPI运行环境
 module purge
 export MPICH_CXX=icpx
@@ -37,9 +37,15 @@ export SLURM_MPI_TYPE=pmi2 # 等价于 srun 的时候加入参数 --mpi=pmi2。�
 # 生成 machinefile
 srun hostname -s | sort -n > slurm.hosts
 
+
+# 保存一些信息
 # athena -d output -i test_cooling.athinput time/tlim=0
+mkdir -p info                                              # 创建 info 路径用于存放各种信息
+mpirun -n 1 athena -c > info/configure.txt                 # 打印 Athena++ 的配置信息。MPI 并行时，需要用 mpirun，否则单独 athena -c 的话 MPI 会报错。
+mpirun -n 1 athena -d output -i "$athinput_file" -m "$SLURM_NTASKS" > info/MeshBlocks.txt 
+mv mesh_structure.dat info/                                # 保存网格结构信息
+
 # 执行MPI并行计算程序
-mpirun -n 1 athena -c  # 打印 Athena++ 的配置信息。MPI 并行时，需要用 mpirun，否则单独 athena -c 的话 MPI 会报错。
 echo "[Running Athena++]: "
 mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinput_file"
 # srun athena -d output -i test_cooling.athinput #FIXME 不对，这个不能跨节点？
