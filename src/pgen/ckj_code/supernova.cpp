@@ -194,6 +194,10 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
               cons(IM2,k,j,i) += drho * SN->velocity[1];
               cons(IM3,k,j,i) += drho * SN->velocity[2];
               cons(IEN,k,j,i) += 0.5 * drho * SQR(SN->velocity_magnitude);
+              // 注入 Passive Scalar，正比于质量密度
+              if (NSCALARS > 0) {
+                cons_scalar(PassiveScalarIndex::SN,k,j,i) += drho;
+              }
             }
             // 这里的 debug 信息不再那么有用，将来可以考虑删去
             // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){

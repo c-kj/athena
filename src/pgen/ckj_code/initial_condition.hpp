@@ -11,6 +11,7 @@
 #include "../../mesh/mesh.hpp"
 #include "../../coordinates/coordinates.hpp"
 #include "../../hydro/hydro.hpp"
+#include "../../scalars/scalars.hpp"
 
 // 自定义的头文件
 #include "ckj_code.hpp"

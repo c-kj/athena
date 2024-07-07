@@ -8,6 +8,9 @@
 // 使用 .at 方法来获取对应的 SourceTermPosition，如果不存在则会抛出异常
 enum class SourceTermPosition {InSourceTerm, AfterSourceTerm, UserWorkInLoop}; 
 
+// Passive Scalar 与其对应的 index 的对应
+enum PassiveScalarIndex {SN};
+
 // 这里也许不能声明为 static?
 static std::unordered_map<std::string, SourceTermPosition> source_term_position_map = {
   {"InSourceTerm", SourceTermPosition::InSourceTerm},

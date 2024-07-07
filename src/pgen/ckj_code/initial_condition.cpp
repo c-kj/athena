@@ -144,5 +144,13 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
   if (NON_BAROTROPIC_EOS) {
     cons(IEN,k,j,i) = E_thermal + 0.5 * rho * (SQR(vx1) + SQR(vx2) + SQR(vx3));
   }
+
+  // 如果启用 Passive Scalars，那么需要初始化它们。
+  //TODO 目前全部初始化为 0。将来可能根据特定的 Passive Scalar 有不同的初始化。
+  if (NSCALARS > 0) {
+    for (int n=0; n<NSCALARS; ++n) {
+      pmb->pscalars->s(n,k,j,i) = 0;
+    }
+  }
 }
 
