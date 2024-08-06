@@ -99,7 +99,7 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
   }
 
   // 中心黑洞的引力
-  if (GM_BH != 0.0) {
+  if (M_BH != 0.0) {
     SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
@@ -148,15 +148,45 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中
         //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，放到 SimulationRegion 类中。这两个函数的调用是不是应该放在 UserWorkInLoop 中？这样只需调用一次，而且 RK2 关心的是变化量，可能不能准确一步抵达目标？
         // 进入黑洞的处理
-        //? 这里的处理方式合适吗？动量为 0 应该没错，能量（压强）应该是个小值还是 0 ？
         if (r < R_in) {
+          //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！
+          // 计算被 sink region 吸收的物理量：质量、角动量、SN tracer。
+          const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
+          const Real cell_mass = cons(IDN,k,j,i) * cell_volume;
+
+          // 质量
+          pmb->ruser_meshblock_data[I_accreted_mass](0) += cell_mass;  // 记录被 BH 吸收的质量
+          pmb->ruser_meshblock_data[I_accretion_rate](0) += cell_mass;  // 同时也记到 I_accretion_rate 里，最后加总后再除以 dt。注意这里必须是 +=，因为这是对每个格点的质量进行累加。
+
+          // 动量
+          Vector momentum;
+          for (int l = 0; l < 3; ++l) {
+            momentum[l] = cons(IM1+l,k,j,i);
+            pmb->ruser_meshblock_data[I_accreted_momentum](l) += momentum[l];  // 记录被 BH 吸收的动量
+          }
+
+          // 角动量
+          Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
+          for (int l = 0; l < 3; ++l) {
+            pmb->ruser_meshblock_data[I_accreted_angular_momentum](l) += angular_momentum[l];  // 记录被 BH 吸收的角动量
+          }
+          
+          // SN Tracer
+          if (NSCALARS > 0) {
+            Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume;
+            pmb->ruser_meshblock_data[I_accreted_SN_tracer](0) += SN_tracer_mass;
+            pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) += SN_tracer_mass;
+            cons_scalar(PassiveScalarIndex::SN,k,j,i) = 0;  // 清空 SN Tracer
+          }
+
+          // 处理 Sink Region 内的物理量改变
           cons(IDN,k,j,i) = std::min(rho_in_BH, rho);
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
           // 修改能量
           if (NON_BAROTROPIC_EOS) {
-            cons(IEN,k,j,i) = 0.0 + 0.0; 
+            cons(IEN,k,j,i) = 0.0 + 0.0;          //? 这里的处理方式合适吗？动量为 0 应该没错，能量（压强）应该是个小值还是 0 ？
           }
         }
 
@@ -229,9 +259,51 @@ inline Real hst_num_MeshBlocks(MeshBlock *pmb, int iout) {
 inline Real hst_dt_hyperbolic(MeshBlock *pmb, int iout) {
   return pmb->pmy_mesh->dt_hyperbolic;
 }
+
 inline Real hst_dt_user(MeshBlock *pmb, int iout) {
   return pmb->pmy_mesh->dt_user;  
   // 如果没 EnrollUserTimeStepFunction，这里的 dt_user 会是 Athena++ 内部初始化时设定的 std::numeric_limits<Real>::max()
+}
+
+inline Real hst_accreted_mass(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_mass](0);
+}
+inline Real hst_accretion_rate(MeshBlock *pmb, int iout) {
+  Real accretion_rate = pmb->ruser_meshblock_data[I_accretion_rate](0) / pmb->pmy_mesh->dt;  // 除以 dt，得到每秒的 accretion rate
+  pmb->ruser_meshblock_data[I_accretion_rate](0) = 0;  // 重置
+  return accretion_rate;
+}
+
+inline Real hst_accreted_SN_tracer(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_SN_tracer](0);
+}
+inline Real hst_accretion_rate_SN_tracer(MeshBlock *pmb, int iout) {
+  Real accretion_rate_SN_tracer = pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) / pmb->pmy_mesh->dt;  // 除以 dt，得到每秒的 accretion rate
+  pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0;  // 重置
+  return accretion_rate_SN_tracer;
+}
+
+
+// 动量的三个分量
+inline Real hst_accreted_momentum_x(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_momentum](0);
+}
+inline Real hst_accreted_momentum_y(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_momentum](1);
+}
+inline Real hst_accreted_momentum_z(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_momentum](2);
+}
+
+// 角动量的三个分量
+inline Real hst_accreted_angular_momentum_x(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](0);
+}
+inline Real hst_accreted_angular_momentum_y(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](1);
+}
+inline Real hst_accreted_angular_momentum_z(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](2);
 }
 
 
@@ -284,16 +356,16 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   };
   beta_last_stage = beta_last_stage_map.at(integrator);  // 使用 .at 来获取值，如果 key 不存在会抛出异常。
 
-  // 从 input file 中读取参数，存到 pgen 文件的全局变量中
-  //TODO 给这几个变量设定默认值？
+  // 从 input file 中读取参数，存到 pgen 文件的模块级别变量中
   Real M_BH_in_Msun = pin->GetOrAddReal("problem","M_BH", 0.0);
   M_BH = M_BH_in_Msun * punit->solar_mass_code;
-  GM_BH = M_BH * punit->grav_const_code;  //TODO 其他地方是否要改为只使用 M_BH 而抛弃 GM_BH？
+  GM_BH = M_BH * punit->grav_const_code;
 
   R_in = pin->GetOrAddReal("problem","R_in", 0.0);
   R_out = pin->GetOrAddReal("problem","R_out", std::numeric_limits<Real>::max());
-  rho_in_BH = pin->GetReal("problem","rho_in_BH");
+  rho_in_BH = pin->GetReal("problem","rho_in_BH");  //TODO 把 rho_in_BH 改名为 n_in_BH，设定默认值，并且在默认模板中不设定值。
 
+  // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时、跨 MPI rank 的一致性。
   initial_condition = std::unique_ptr<InitialCondition>(new InitialCondition(this, pin));
 
@@ -335,10 +407,38 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
 
   // 自定义的 hst Output
-  AllocateUserHistoryOutput(3);
-  EnrollUserHistoryOutput(0, hst_num_MeshBlocks, "num_MeshBlocks");
-  EnrollUserHistoryOutput(1, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
-  EnrollUserHistoryOutput(2, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
+  enum UserHistoryOutputIndex {
+    I_num_MeshBlocks,
+    I_dt_hyperbolic,
+    I_dt_user,
+    I_accreted_mass,
+    I_accretion_rate,
+    I_accreted_SN_tracer,
+    I_accretion_rate_SN_tracer,
+    I_accreted_momentum_x,
+    I_accreted_momentum_y,
+    I_accreted_momentum_z,
+    I_accreted_angular_momentum_x,
+    I_accreted_angular_momentum_y,
+    I_accreted_angular_momentum_z,
+    // 其他 ...
+    N_UserHistoryOutput // 总个数
+  };
+
+  AllocateUserHistoryOutput(N_UserHistoryOutput);
+  EnrollUserHistoryOutput(I_num_MeshBlocks, hst_num_MeshBlocks, "num_MeshBlocks");
+  EnrollUserHistoryOutput(I_dt_hyperbolic, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
+  EnrollUserHistoryOutput(I_dt_user, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
+  EnrollUserHistoryOutput(I_accreted_mass, hst_accreted_mass, "accreted_mass");
+  EnrollUserHistoryOutput(I_accretion_rate, hst_accretion_rate, "accretion_rate");
+  EnrollUserHistoryOutput(I_accreted_SN_tracer, hst_accreted_SN_tracer, "accreted_SN_tracer");
+  EnrollUserHistoryOutput(I_accretion_rate_SN_tracer, hst_accretion_rate_SN_tracer, "accretion_rate_SN_tracer");
+  EnrollUserHistoryOutput(I_accreted_momentum_x, hst_accreted_momentum_x, "accreted_momentum_x");
+  EnrollUserHistoryOutput(I_accreted_momentum_y, hst_accreted_momentum_y, "accreted_momentum_y");
+  EnrollUserHistoryOutput(I_accreted_momentum_z, hst_accreted_momentum_z, "accreted_momentum_z");
+  EnrollUserHistoryOutput(I_accreted_angular_momentum_x, hst_accreted_angular_momentum_x, "accreted_angular_momentum_x");  
+  EnrollUserHistoryOutput(I_accreted_angular_momentum_y, hst_accreted_angular_momentum_y, "accreted_angular_momentum_y");
+  EnrollUserHistoryOutput(I_accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
 
   if (Globals::my_rank == 0) {
     // Print unit 相关信息
@@ -354,6 +454,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 // 函数用途：初始化每个 MeshBlock 上的局部变量（包括数组数据）
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
+  AllocateRealUserMeshBlockDataField(N_RealUserMeshBlockData);
+  ruser_meshblock_data[I_accreted_mass].NewAthenaArray(1);  // 黑洞吸积的总质量，在每个 MeshBlock 上单独存储。
+  ruser_meshblock_data[I_accretion_rate].NewAthenaArray(1);  // 用于计算黑洞吸积率，储存当前 dt 内吸积的质量，最后除以 dt。
+  ruser_meshblock_data[I_accreted_SN_tracer].NewAthenaArray(1);  // 被黑洞吸积的 SN ejecta 的质量，在每个 MeshBlock 上单独存储。
+  ruser_meshblock_data[I_accretion_rate_SN_tracer].NewAthenaArray(1);  // 用于计算吸积率中 SN tracer 的质量。储存当前 dt 内吸积的质量，最后除以 dt。
+  ruser_meshblock_data[I_accreted_momentum].NewAthenaArray(3);  // 黑洞吸积的总动量，在每个 MeshBlock 上单独存储。
+  ruser_meshblock_data[I_accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量，在每个 MeshBlock 上单独存储。
+
   // 设定 uov
   AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
   //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。

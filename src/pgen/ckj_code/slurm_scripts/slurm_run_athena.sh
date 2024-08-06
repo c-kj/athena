@@ -52,7 +52,8 @@ mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinpu
 
 
 # 运行完之后，直接做后处理
-PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/single_SN.py"
+# PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/single_SN.py"
+PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/Bondi+random_SN.py"
 echo "[Running post-processing script]: $PYTHON_SCRIPT"
 mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts python "$PYTHON_SCRIPT"
 

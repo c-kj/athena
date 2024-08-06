@@ -16,6 +16,15 @@ using Vector = std::array<Real, 3>;
 // 重载 << 操作符。实现在 region.cpp 中，从而可以被其他文件多处 include
 std::ostream& operator<<(std::ostream& os, const Point& point);
 
+// 矢量的叉乘
+inline Vector CrossProduct(const Vector &a, const Vector &b) {
+  return {
+    a[1]*b[2] - a[2]*b[1], 
+    a[2]*b[0] - a[0]*b[2], 
+    a[0]*b[1] - a[1]*b[0]
+  };
+}
+
 
 struct Region {
   int dim;
