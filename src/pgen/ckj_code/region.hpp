@@ -3,12 +3,19 @@
 
 // C++ headers
 #include <array>
+#include <iostream>
 
 // Athena++ headers
 #include "../../athena.hpp"
 
 
 using Point = std::array<Real, 3>; // 目前把所有情况都当 3D 处理。对于 2D，第三个坐标可以任意。
+using Vector = std::array<Real, 3>;
+
+
+// 重载 << 操作符。实现在 region.cpp 中，从而可以被其他文件多处 include
+std::ostream& operator<<(std::ostream& os, const Point& point);
+
 
 struct Region {
   int dim;

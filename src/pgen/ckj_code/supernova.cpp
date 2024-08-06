@@ -2,6 +2,7 @@
 #include <sstream>  // std::stringstream, std::getline
 #include <stdexcept>  // std::invalid_argument
 #include <algorithm>  // std::sort
+#include <random>  // 生成随机数
 
 // #include "../../mesh/mesh.hpp"
 #include "../../coordinates/coordinates.hpp"
@@ -9,42 +10,20 @@
 
 #include "supernova.hpp"
 #include "utils.hpp"
+#include "initial_condition.hpp"  //TEMP
 
 
-// SupernovaParameters 的构造函数
-SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, const int i): ndim(pSNe->ndim) {
-  std::string block_name, i_str, center_str;
-  Real radius, energy_radius, mass_radius;
-  Point center, energy_center, mass_center;
-  block_name = "supernova";
-
-  i_str = std::to_string(i);
-
-  auto time_list = read_vector(pin->GetString(block_name, "SN_" + i_str + "_time")); //TEMP
-
-  auto event_num = time_list.size();
-
-  energy = pin->GetOrAddReal(block_name, "SN_" + i_str + "_energy", 0.0);
-  mass = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass", 0.0);
-  velocity = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"));
-
-
-  region_name = pin->GetOrAddString(block_name, "SN_" + i_str + "_region", "ball"); // region 的种类名，默认是 ball
-  // 由于 radius 和 center 是比较通用的参数，因此总是读取
-  radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_radius", 0.0);
-  center_str = pin->GetOrAddString(block_name, "SN_" + i_str + "_center", "0,0,0"); // 用于后续的 fallback
-  center = read_array(center_str);
-
+SupernovaEvent::SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v): 
+  paras(paras), time(t), position(x), velocity(v),
+  velocity_magnitude(std::sqrt(SQR(v[0]) + SQR(v[1]) + SQR(v[2]))) 
+{
+  auto region_name = paras->region_name;
   if (region_name == "ball") {
     // energy 的 region 是默认的，input file 里的 radius 和 center 都是指 energy 的。mass 的相关参数可以单独指定。
-    energy_radius = radius;
-    energy_center = center;
-    energy_region = std::unique_ptr<Region>(new Ball(energy_center, energy_radius, ndim));
+    energy_region = std::unique_ptr<Region>(new Ball(position, paras->radius, paras->ndim));
     // mass 的 region。如果没有单独指定，则使用 SN_i_radius 和 SN_i_center 所指定的。
     // 目前不检查 mass 是否为 0，避免麻烦。内存开销应该很小。
-    mass_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass_radius", radius);
-    mass_center = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_mass_center", center_str));
-    mass_region = std::unique_ptr<Region>(new Ball(mass_center, mass_radius, ndim));
+    mass_region = std::unique_ptr<Region>(new Ball(position, paras->mass_radius, paras->ndim));
     
   } else if (region_name == "heart") {
     //TODO 把 heart SN 实现
@@ -54,25 +33,120 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
   }
 
   // 这里 energy_density 和 mass_density 的单位有点奇怪：energy 是 input file 中的数字，单位为 1e51 erg（目前），而 volume 是 code unit。但这样做是为了尽量避免重复计算 / 重复储存。
-  energy_density = energy / energy_region->volume; //* volume 有时会被初始化为 0，因为这种时候 region.contains() 永远不会为 true
-  mass_density = mass / mass_region->volume;
+  energy_density = paras->energy / energy_region->volume; //* volume 有时会被初始化为 0，因为这种时候 region.contains() 永远不会为 true
+  mass_density = paras->mass / mass_region->volume;
+}
 
-  // ? 有没有必要检查 energy_radius <= mass_radius ?
 
+std::string SupernovaEvent::Info(){
+  std::ostringstream oss;
+  oss << "time = " << time << ", position = " << position << ", velocity = " << velocity << ", |v| = " << velocity_magnitude ;
+  return oss.str();
+}
+
+
+
+
+// SupernovaParameters 的构造函数
+SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, const int i): ndim(pSNe->ndim) {
+  const std::string block_name = "supernova";
+  const std::string i_str = std::to_string(i);
+
+  //TEMP 这里整个的生成逻辑、顺序、参数处理，有待梳理
+
+  Real allow_region_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_allow_region_radius", std::numeric_limits<Real>::max());
+  Ball allow_region({0,0,0}, allow_region_radius, ndim);
+  //* generate_region_radius 的用途是，固定 random_seed 的情况下，可以手动控制各个 SN 的位置是随着 allow_region_radius 缩放，随着 xmax 缩放，还是不变
+  Real generate_region_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_generate_region_radius", allow_region_radius);
+  // 限制不要让 SN 在黑洞内生成
+  Real R_in = pin->GetOrAddReal("problem","R_in", 0.0);  //TODO 目前直接从 pin 读取，但以后可以改为从统一的某个类指针里读取。
+  Ball sink_region({0,0,0}, R_in, ndim);  // 目前暂时让黑洞的位置是原点，以后可能考虑变化，这就要用单独的类来管理了。
+
+  //TEMP 处理等间隔的 time_list
+  std::string event_type = pin->GetOrAddString(block_name, "SN_" + i_str + "_event_type", "single_point"); // 默认是 single，即只有一个 SN
+  //// RegionSize mesh_size = pSNe->pmy_mesh->mesh_size;
+  std::vector<Real> time_list;
+  if (event_type == "random") {  //* 如果是 random，目前按照 tau_SF 以及区域内总质量来计算时间间隔，等间隔地生成 time_list。注意目前 time_list 并不 random！
+    Real t_start = 0.0; 
+    Real t_end = pin->GetReal("time", "tlim"); 
+    Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF"); 
+    //TODO 这里目前从 pin 读取的参数，并重新进行换算。以后考虑改为从 initial_condition 指针中读取。但这需要在顶层把指针收集起来。
+    Real n_init_cgs = pin->GetReal("initial_condition", "n_init_cgs");
+    Real rho_init_code = rho_from_n_cgs(Abundance::mu, n_init_cgs) / pSNe->punit->code_density_cgs;
+    //TEMP 要不还是改为在 box 内随机撒点，然后计数吧，否则区域的交集实在不好算；注意 time_list 的分配应该在后面，这样才是等间隔的，不会跳过。但是这样在 SN 少的情况下，可能波动很大，怎么办？
+    Real SN_rate = rho_init_code * (allow_region.volume - sink_region.volume) / (150. * pSNe->punit->solar_mass_code) / tau_SF;  // 都是 code unit 下计算。量纲是 个数/时间
+    //* 这里用的体积是 allow_region - sink_region 的体积
+    
+    for (Real t = t_start; t < t_end; t += 1.0/SN_rate) {
+      time_list.push_back(t);
+    }
+  } else {
+    time_list = read_vector(pin->GetString(block_name, "SN_" + i_str + "_time")); //TEMP
+  }
+  
+  auto event_num = time_list.size();
+
+  energy = pin->GetOrAddReal(block_name, "SN_" + i_str + "_energy", 0.0);
+  mass = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass", 0.0);
+
+  //! 目前对速度的处理只是统一的平动速度。
+  //TODO 以后可以考虑加入随机速度、Kepler 速度。
+  velocity = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"));
+
+
+  region_name = pin->GetOrAddString(block_name, "SN_" + i_str + "_region", "ball"); // region 的种类名，默认是 ball
+  // 由于 radius 和 center 是比较通用的参数，因此总是读取，存到成员变量中，由各个 events 来读取
+  radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_radius", 0.0);
+  mass_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass_radius", radius);  // mass 注入区域的半径。默认和 energy radius 一致
+
+
+  std::vector<Point> center_list;
+  if (event_type == "random") {
+    int random_seed = pin->GetOrAddInteger(block_name, "SN_" + i_str + "_random_seed", 1234);
+    std::mt19937 gen(random_seed);
+    std::uniform_real_distribution<Real> dis_x(- generate_region_radius, generate_region_radius);
+    std::uniform_real_distribution<Real> dis_y(- generate_region_radius, generate_region_radius);
+    std::uniform_real_distribution<Real> dis_z(- generate_region_radius, generate_region_radius);
+    while (center_list.size() < event_num) {
+      Point center = {dis_x(gen), dis_y(gen), dis_z(gen)};
+      if (allow_region.contains(center) and not sink_region.contains(center)) {
+        center_list.push_back(center);
+      }
+    }
+  } else {
+    std::string center_str = pin->GetOrAddString(block_name, "SN_" + i_str + "_center", "0,0,0"); // 用于后续的 fallback
+    Point center = read_array(center_str);
+    center_list.assign(event_num, center);
+  }
+
+  // ? 有没有必要检查 radius <= mass_radius ?
 
   // 创建所属的 SupernovaEvent 
-  //TODO 随机生成
   for (int i = 0; i < event_num; ++i) {  //TODO 这里叫 i 跟函数参数重了，会不会有问题？
     event_list.push_back(
-      std::unique_ptr<SupernovaEvent>(new SupernovaEvent(this, time_list[i], center, velocity))
+      std::unique_ptr<SupernovaEvent>(new SupernovaEvent(this, time_list[i], center_list[i], velocity))
       );
   }
 
 }
 
+//TODO 把生成 SupernovaEvent 的代码拎出来，单独成为一个函数
+// void SupernovaParameters::InitSupernovaEvents() {
+
+// }
+
+
+
+
+
+
+
+
+
+
 
 // Supernovae 的构造函数
-Supernovae::Supernovae(Mesh *pmy_mesh, ParameterInput *pin) : punit(pmy_mesh->punit), ndim(pmy_mesh->ndim) {
+Supernovae::Supernovae(Mesh *pmy_mesh, ParameterInput *pin) : pmy_mesh(pmy_mesh), punit(pmy_mesh->punit), ndim(pmy_mesh->ndim) {
   SN_flag = pin->GetOrAddInteger("supernova","SN_flag",0);  //* 目前 SN_flag 设为一个 int，是为了以后可能会有多种 SN 的情况（暂时也没想出来）
   if (SN_flag == 0) return; // 如果不开启 Supernovae 机制，直接跳出
   if (SN_flag < 0) { throw std::invalid_argument("SN_flag < 0 is not allowed!"); }
@@ -125,18 +199,11 @@ void Supernovae::InitSupernovaEvents() {
 
 
 void Supernovae::PrintInfo() {
-  //TODO 比较临时，有待完善
-  std::cout << "Supernovae: \n";
+  //TODO 比较临时，有待完善: 每个 paras 输出：能量、tau_SF 等参数
+  std::cout << "Supernovae: \n" 
+  << "Total: " << supernova_list.size() << "\n";
   for (const auto& SN : supernova_list) {
-    std::cout << "time = " << SN->time << ", position = {";
-    for (auto x : SN->position) {
-      std::cout << x << ", ";
-    }
-    std::cout << "}, velocity = {";
-    for (auto v : SN->velocity) {
-      std::cout << v << ", ";
-    }
-    std::cout << "}" << "\n";
+    std::cout << SN->Info() << "\n";
   }
 }
 
@@ -179,35 +246,32 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         x = pmb->pcoord->x1v(i);
 
-//TODO 限制不能在黑洞内部注入超新星！
-        if (true) {
-         // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
-          for (SupernovaEvent* SN : supernova_to_inject) {
-            //TEMP
-            if ( SN->paras->energy_region->contains({x,y,z}) ) {
-              cons(IEN,k,j,i) += SN->paras->energy_density * SN_energy_unit * inject_ratio;
-            }
-            if ( SN->paras->mass_region->contains({x,y,z}) ) {
-              Real drho = SN->paras->mass_density * SN_mass_unit * inject_ratio;
-              cons(IDN,k,j,i) += drho;
-              cons(IM1,k,j,i) += drho * SN->velocity[0];
-              cons(IM2,k,j,i) += drho * SN->velocity[1];
-              cons(IM3,k,j,i) += drho * SN->velocity[2];
-              cons(IEN,k,j,i) += 0.5 * drho * SQR(SN->velocity_magnitude);
-              // 注入 Passive Scalar，正比于质量密度
-              if (NSCALARS > 0) {
-                cons_scalar(PassiveScalarIndex::SN,k,j,i) += drho;
-              }
-            }
-            // 这里的 debug 信息不再那么有用，将来可以考虑删去
-            // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
-            //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
-            //     printf_and_save_to_stream(debug_stream, 
-            //     "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
-            //     time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-            //   }
-            // } 
+        // 超新星爆炸的能量和质量注入。//* 目前没有实现动量注入，也没有考虑 SN 的运动速度
+        for (SupernovaEvent* SN : supernova_to_inject) {
+          //TEMP
+          if ( SN->energy_region->contains({x,y,z}) ) {
+            cons(IEN,k,j,i) += SN->energy_density * SN_energy_unit * inject_ratio;
           }
+          if ( SN->mass_region->contains({x,y,z}) ) {
+            Real drho = SN->mass_density * SN_mass_unit * inject_ratio;
+            cons(IDN,k,j,i) += drho;
+            cons(IM1,k,j,i) += drho * SN->velocity[0];
+            cons(IM2,k,j,i) += drho * SN->velocity[1];
+            cons(IM3,k,j,i) += drho * SN->velocity[2];
+            cons(IEN,k,j,i) += 0.5 * drho * SQR(SN->velocity_magnitude);
+            // 注入 Passive Scalar，正比于质量密度
+            if (NSCALARS > 0) {
+              cons_scalar(PassiveScalarIndex::SN,k,j,i) += drho;
+            }
+          }
+          // 这里的 debug 信息不再那么有用，将来可以考虑删去
+          // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
+          //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
+          //     printf_and_save_to_stream(debug_stream, 
+          //     "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
+          //     time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+          //   }
+          // } 
         }
       }
     }

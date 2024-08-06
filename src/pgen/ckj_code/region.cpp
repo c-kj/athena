@@ -8,6 +8,12 @@
 // 自定义的头文件
 #include "region.hpp"
 
+// 重载 << 操作符，使得可以直接输出 Point 对象（顺便也兼容 Vector，因为都是 std::array<Real,3> ）
+std::ostream& operator<<(std::ostream& os, const Point& point) {
+    os << "{" << point[0] << ", " << point[1] << ", " << point[2] << "}";
+    return os;
+}
+
 
 
 Ball::Ball(const Point &center, const Real radius, const int ndim) : center(center), radius(radius) {

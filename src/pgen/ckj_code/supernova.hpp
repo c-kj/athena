@@ -20,8 +20,6 @@
 #include "region.hpp"
 
 
-using Vector = std::array<Real, 3>;
-using Point = std::array<Real, 3>;
 
 // forward declaration
 struct Supernovae;
@@ -39,34 +37,38 @@ struct SupernovaParameters {
   Real mass = 0.0;
   Vector velocity = {0, 0, 0};
 
-  // energy 和 mass 注入的 Region。
-  // 之所以用指针，是因为这样可以适用于各种 Region 类型，不需要指定具体是哪个子类。用智能指针，不需要手动释放内存
-  std::unique_ptr<Region> energy_region = nullptr; 
-  std::unique_ptr<Region> mass_region = nullptr;
-
-  std::string region_name;
-  Real energy_density=0.0, mass_density=0.0;
+  std::string region_name;  //TODO 名称改为 injection_shape ？连着输入参数模板一起改。 反正输入参数中目前还无需指定，只用默认值。
+  Real radius, mass_radius;
+  Point center;
 
   std::vector<std::unique_ptr<SupernovaEvent>> event_list;
 
   // 不一定会用上的属性。目前还没写实现
   // std::string name;
   // std::string type;
+
+  // void InitSupernovaEvents();
     
 };
 
 // 表示单个 SN 爆炸的事件。只包含简单的信息（t,x,v 等），其他统一的参数在 SupernovaParameters 对象中。 
 struct SupernovaEvent {
-  SupernovaParameters *paras;
+  // 构造函数，这里只是简单地初始化成员变量
+  SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v); 
+
+  SupernovaParameters *paras;  // 该事件所属的 SupernovaParameters
   Real time;
   Point position;
   Vector velocity;
   Real velocity_magnitude;
 
-  SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v): 
-  paras(paras), time(t), position(x), velocity(v),
-  velocity_magnitude(std::sqrt(SQR(v[0]) + SQR(v[1]) + SQR(v[2]))) 
-  {}
+  // energy 和 mass 注入的 Region。
+  // 之所以用指针，是因为这样可以适用于各种 Region 类型，不需要指定具体是哪个子类。用智能指针，不需要手动释放内存
+  std::unique_ptr<Region> energy_region = nullptr; 
+  std::unique_ptr<Region> mass_region = nullptr;
+  Real energy_density = 0.0, mass_density = 0.0;
+
+  std::string Info();
 };
 
 
@@ -75,6 +77,7 @@ struct Supernovae {
   Supernovae() = default; // 默认构造函数。需要这个才能在声明 Supernovae supernovae 时初始化。不过如果改用指针，可能就不需要这个了。
   Supernovae(Mesh *pmy_mesh, ParameterInput *pin);
 
+  Mesh *pmy_mesh;
   Units *punit;  // TEMP 暂时放在这个类中，考虑挪到 SupernovaParameters 中
   int ndim;      // TEMP 暂时放在这个类中，考虑挪到 SupernovaParameters 中
   int SN_flag;
