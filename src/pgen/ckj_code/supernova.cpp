@@ -13,6 +13,12 @@
 #include "initial_condition.hpp"  //TEMP
 
 
+/* -------------------------------------------------------------------------- */
+/*                               SupernovaEvent                               */
+/* -------------------------------------------------------------------------- */
+
+
+// 构造函数
 SupernovaEvent::SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v): 
   paras(paras), time(t), position(x), velocity(v),
   velocity_magnitude(std::sqrt(SQR(v[0]) + SQR(v[1]) + SQR(v[2]))) 
@@ -45,6 +51,10 @@ std::string SupernovaEvent::Info(){
 }
 
 
+
+/* -------------------------------------------------------------------------- */
+/*                             SupernovaParameters                            */
+/* -------------------------------------------------------------------------- */
 
 
 // SupernovaParameters 的构造函数
@@ -123,26 +133,15 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
 
   // 创建所属的 SupernovaEvent 
   for (int i = 0; i < event_num; ++i) {  //TODO 这里叫 i 跟函数参数重了，会不会有问题？
-    event_list.push_back(
-      std::unique_ptr<SupernovaEvent>(new SupernovaEvent(this, time_list[i], center_list[i], velocity))
-      );
-  }
-
-}
-
-//TODO 把生成 SupernovaEvent 的代码拎出来，单独成为一个函数
-// void SupernovaParameters::InitSupernovaEvents() {
-
-// }
 
 
 
 
 
 
-
-
-
+/* -------------------------------------------------------------------------- */
+/*                                 Supernovae                                 */
+/* -------------------------------------------------------------------------- */
 
 
 // Supernovae 的构造函数

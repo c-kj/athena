@@ -48,6 +48,7 @@ mv mesh_structure.dat info/                                # 保存网格结构�
 # 执行MPI并行计算程序
 echo "[Running Athena++]: "
 mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinput_file"
+# mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinput_file" -r "Bondi.00001.rst"
 # srun athena -d output -i test_cooling.athinput #FIXME 不对，这个不能跨节点？
 
 
