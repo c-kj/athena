@@ -40,6 +40,26 @@ bool Ball::contains(const Point &point) const {
 
 
 
+
+Cuboid::Cuboid(const Point &min_corner, const Point &max_corner) : min_corner(min_corner), max_corner(max_corner) {
+  dim = 3; // 目前只支持 3D。其他维度要仔细考虑（dim 的设置、体积（面积、超体积）的计算……）
+  volume = 1.0;
+  for (int i = 0; i < dim; ++i) {
+    edge_lengths[i] = max_corner[i] - min_corner[i];
+    volume *= edge_lengths[i];
+  }
+}
+
+bool Cuboid::contains(const Point &point) const {
+  for (int i = 0; i < dim; ++i) {
+    if (point[i] < min_corner[i] || point[i] > max_corner[i]) return false;
+  }
+  return true;
+}
+
+
+
+
 Heart::Heart(const Point &center, const Real size, const Real a, const Real b) : center(center), size(size), a(a), b(b) {
   dim = 2; // 如果要兼容 3D 的话，需要仔细考虑
   volume = PI*a*b * SQR(size);

@@ -62,77 +62,121 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
   const std::string block_name = "supernova";
   const std::string i_str = std::to_string(i);
 
-  //TEMP 这里整个的生成逻辑、顺序、参数处理，有待梳理
-
-  Real allow_region_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_allow_region_radius", std::numeric_limits<Real>::max());
-  Ball allow_region({0,0,0}, allow_region_radius, ndim);
-  //* generate_region_radius 的用途是，固定 random_seed 的情况下，可以手动控制各个 SN 的位置是随着 allow_region_radius 缩放，随着 xmax 缩放，还是不变
-  Real generate_region_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_generate_region_radius", allow_region_radius);
-  // 限制不要让 SN 在黑洞内生成
-  Real R_in = pin->GetOrAddReal("problem","R_in", 0.0);  //TODO 目前直接从 pin 读取，但以后可以改为从统一的某个类指针里读取。
-  Ball sink_region({0,0,0}, R_in, ndim);  // 目前暂时让黑洞的位置是原点，以后可能考虑变化，这就要用单独的类来管理了。
-
-  //TEMP 处理等间隔的 time_list
-  std::string event_type = pin->GetOrAddString(block_name, "SN_" + i_str + "_event_type", "single_point"); // 默认是 single，即只有一个 SN
-  //// RegionSize mesh_size = pSNe->pmy_mesh->mesh_size;
-  std::vector<Real> time_list;
-  if (event_type == "random") {  //* 如果是 random，目前按照 tau_SF 以及区域内总质量来计算时间间隔，等间隔地生成 time_list。注意目前 time_list 并不 random！
-    Real t_start = 0.0; 
-    Real t_end = pin->GetReal("time", "tlim"); 
-    Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF"); 
-    //TODO 这里目前从 pin 读取的参数，并重新进行换算。以后考虑改为从 initial_condition 指针中读取。但这需要在顶层把指针收集起来。
-    Real n_init_cgs = pin->GetReal("initial_condition", "n_init_cgs");
-    Real rho_init_code = rho_from_n_cgs(Abundance::mu, n_init_cgs) / pSNe->punit->code_density_cgs;
-    //TEMP 要不还是改为在 box 内随机撒点，然后计数吧，否则区域的交集实在不好算；注意 time_list 的分配应该在后面，这样才是等间隔的，不会跳过。但是这样在 SN 少的情况下，可能波动很大，怎么办？
-    Real SN_rate = rho_init_code * (allow_region.volume - sink_region.volume) / (150. * pSNe->punit->solar_mass_code) / tau_SF;  // 都是 code unit 下计算。量纲是 个数/时间
-    //* 这里用的体积是 allow_region - sink_region 的体积
-    
-    for (Real t = t_start; t < t_end; t += 1.0/SN_rate) {
-      time_list.push_back(t);
-    }
-  } else {
-    time_list = read_vector(pin->GetString(block_name, "SN_" + i_str + "_time")); //TEMP
-  }
-  
-  auto event_num = time_list.size();
-
+  // 初始化自身的参数
   energy = pin->GetOrAddReal(block_name, "SN_" + i_str + "_energy", 0.0);
   mass = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass", 0.0);
-
-  //! 目前对速度的处理只是统一的平动速度。
-  //TODO 以后可以考虑加入随机速度、Kepler 速度。
-  velocity = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"));
-
-
   region_name = pin->GetOrAddString(block_name, "SN_" + i_str + "_region", "ball"); // region 的种类名，默认是 ball
-  // 由于 radius 和 center 是比较通用的参数，因此总是读取，存到成员变量中，由各个 events 来读取
   radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_radius", 0.0);
   mass_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_mass_radius", radius);  // mass 注入区域的半径。默认和 energy radius 一致
 
-
+  // 准备好用于创建所属的 events 的参数
+  std::vector<Real> time_list;
   std::vector<Point> center_list;
-  if (event_type == "random") {
+  //FUTURE 目前对速度的处理只是统一的平动速度。以后可以考虑加入随机速度、Kepler 速度。
+  Vector velocity = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"));
+
+
+  std::string event_type = pin->GetOrAddString(block_name, "SN_" + i_str + "_event_type", "single_point"); // 默认是 single_point，即只有一个位置
+  if (event_type == "random") {  //* 如果是 random，目前按照 tau_SF 以及区域内总质量来计算时间间隔，等间隔地生成 time_list。注意目前 time_list 并不 random！
+
+    std::string allow_region_shape = pin->GetOrAddString(block_name, "SN_" + i_str + "_allow_region_shape", "ball");
+    std::unique_ptr<Region> allow_region_outer;
+    std::uniform_real_distribution<Real> dis_x, dis_y, dis_z;
+    RegionSize mesh_size = pSNe->pmy_mesh->mesh_size;
+    Point BH_pos = {0,0,0};
+
+    // 确定 SN 的生成区域，从而计算爆炸数目（根据体积）、生成所需的随机分布
+    if (allow_region_shape == "ball") { // 以黑洞为中心的球体区域
+      Real allow_region_radius = pin->GetReal(block_name, "SN_" + i_str + "_allow_region_radius");
+      allow_region_outer = std::unique_ptr<Region>(new Ball(BH_pos, allow_region_radius, ndim));  // 注意这里的 allow_region_outer 实际上并不是字面意义的 allow_region，还要减去 sink_region 才行
+      // 检验 allow_region_radius 是否超出了模拟的 mesh 的范围，如果超出的话，后续体积计算会变得不正确，因此报错退出。
+      std::vector<Real> BH_mesh_boundary_distances = { // 这里的写法不太优雅，但没办法，mesh_size 本身太不优雅了。
+          std::abs(mesh_size.x1min - BH_pos[0]), std::abs(mesh_size.x1max - BH_pos[0]),
+          std::abs(mesh_size.x2min - BH_pos[1]), std::abs(mesh_size.x2max - BH_pos[1]),
+          std::abs(mesh_size.x3min - BH_pos[2]), std::abs(mesh_size.x3max - BH_pos[2])};
+      auto max_distance = *std::max_element(BH_mesh_boundary_distances.begin(), BH_mesh_boundary_distances.end());
+      if (allow_region_radius > max_distance) {
+        throw std::invalid_argument("allow_region_radius > xmax is not allowed!");
+      }
+      //* generate_region_radius 的用途是，固定 random_seed 的情况下，可以手动控制各个 SN 的位置是随着 allow_region_radius 缩放，随着 xmax 缩放，还是不变
+      Real generate_region_radius = pin->GetOrAddReal(block_name, "SN_" + i_str + "_generate_region_radius", allow_region_radius);  // 这个参数一般是不需要显式指定的，默认与 allow_region_radius 相同
+      dis_x = std::uniform_real_distribution<Real>(- generate_region_radius, generate_region_radius);
+      dis_y = std::uniform_real_distribution<Real>(- generate_region_radius, generate_region_radius);
+      dis_z = std::uniform_real_distribution<Real>(- generate_region_radius, generate_region_radius);
+
+    } else if (allow_region_shape == "all") { // 如果是 all，则生成区域是整个网格。用于均匀 ISM 的模拟
+      allow_region_outer = std::unique_ptr<Region>(new Cuboid({mesh_size.x1min, mesh_size.x2min, mesh_size.x3min}, {mesh_size.x1max, mesh_size.x2max, mesh_size.x3max}));
+      dis_x = std::uniform_real_distribution<Real>(mesh_size.x1min, mesh_size.x1max);
+      dis_y = std::uniform_real_distribution<Real>(mesh_size.x2min, mesh_size.x2max);
+      dis_z = std::uniform_real_distribution<Real>(mesh_size.x3min, mesh_size.x3max);
+
+    } else {
+      throw std::invalid_argument("Unknown region type: " + allow_region_shape);
+    }
+
+    // 限制不要让 SN 在黑洞内生成
+    Real R_in = pin->GetOrAddReal("problem","R_in", 0.0);  //FUTURE 目前直接从 pin 读取，但以后可以改为从统一的某个类指针里读取。
+    Ball sink_region(BH_pos, R_in, ndim);  // 目前暂时让黑洞的位置是原点，以后可能考虑变化，那就要用单独的类来管理了。
+    // 允许 SN 爆炸的区域的体积
+    Real allow_region_volume = allow_region_outer->volume - sink_region.volume;  
+    //* 这里假定了 sink_region 完全包含于 allow_region_outer 中，否则体积计算是不正确的。而且这里是理想的球体体积，而非网格离散化后的体积。
+    // 如果想要更通用的体积计算，需要实现 Region 的交集运算 & 交集的体积计算，比较困难。一种方式是用 Monte Carlo 方法。
+
+    // 计算 SN 的爆炸时间 time_list
+    {
+      Real t_start = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_start", 0.0); 
+      Real tlim = pin->GetReal("time", "tlim"); 
+      Real t_end = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_end", tlim);
+      Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF"); 
+      //TODO 这里目前从 pin 读取的参数，并重新进行换算。以后考虑改为从 initial_condition 指针中读取。但这需要在顶层把指针收集起来。
+      Real n_init_cgs = pin->GetReal("initial_condition", "n_init_cgs");
+      Real rho_init_code = rho_from_n_cgs(Abundance::mu, n_init_cgs) / pSNe->punit->code_density_cgs;
+      
+      // 计算 SN 的爆炸速率。以下都是在 code unit 下计算
+      Real SF_rate_density = rho_init_code / tau_SF;  // 恒星形成率密度，量纲：质量密度/时间
+      Real SN_rate_density = SF_rate_density / (150. * pSNe->punit->solar_mass_code);  // SN 爆炸率密度，量纲：数密度/时间。每 150 个 Msun 形成，对应一个 SN 爆炸，这个数字来自 Stellar IMF 的积分
+      Real SN_rate = SN_rate_density * allow_region_volume;  // SN 爆炸率，量纲：个数/时间
+      Real SN_time_interval = 1.0 / SN_rate;  // SN 爆炸的平均时间间隔，量纲：时间
+      
+      // 生成等间隔的 time_list (相当于 numpy.arange)
+      for (Real t = t_start; t < t_end; t += SN_time_interval) {
+        time_list.push_back(t);
+      }
+    }
+
+    // 生成 SN 的位置 center_list
     int random_seed = pin->GetOrAddInteger(block_name, "SN_" + i_str + "_random_seed", 1234);
     std::mt19937 gen(random_seed);
-    std::uniform_real_distribution<Real> dis_x(- generate_region_radius, generate_region_radius);
-    std::uniform_real_distribution<Real> dis_y(- generate_region_radius, generate_region_radius);
-    std::uniform_real_distribution<Real> dis_z(- generate_region_radius, generate_region_radius);
-    while (center_list.size() < event_num) {
-      Point center = {dis_x(gen), dis_y(gen), dis_z(gen)};
-      if (allow_region.contains(center) and not sink_region.contains(center)) {
+    while (center_list.size() < time_list.size()) {
+      Point center = {dis_x(gen), dis_y(gen), dis_z(gen)};  //* 注意这里消耗 gen 的顺序，是 x1, y1, z1, x2, y2, z2, ...，而非 x1, x2, ... y1, y2, ... z1, z2, ... 的顺序
+      if (allow_region_outer->contains(center) and not sink_region.contains(center)) {  // 拒绝采样，要求生成的点在 allow_region_outer 内，且不在 sink_region 内
         center_list.push_back(center);
       }
     }
-  } else {
+
+  } else if (event_type == "single_point") {  // 单点 SN 爆炸。时间上可以重复多次。
+    time_list = read_vector(pin->GetString(block_name, "SN_" + i_str + "_time"));  // 读取 time_list，可能有多个，也可能只有一个。
+
     std::string center_str = pin->GetOrAddString(block_name, "SN_" + i_str + "_center", "0,0,0"); // 用于后续的 fallback
     Point center = read_array(center_str);
-    center_list.assign(event_num, center);
+    center_list.assign(time_list.size(), center);  // 把 center_list 初始化为 event_num 个相同的 center
+
+  } else if (event_type == "from_file") { // 从文件中读取
+    throw std::invalid_argument("Event type 'from_file' is not implemented yet.");
+
+  } else {
+    throw std::invalid_argument("Unknown event type: " + event_type);
   }
 
-  // ? 有没有必要检查 radius <= mass_radius ?
-
   // 创建所属的 SupernovaEvent 
+  std::size_t event_num = time_list.size();
   for (int i = 0; i < event_num; ++i) {  //TODO 这里叫 i 跟函数参数重了，会不会有问题？
+    event_list.reserve(event_num);
+    event_list.emplace_back(new SupernovaEvent(this, time_list[i], center_list[i], velocity));
+    // 使用 emplace_back 避免了 push_back 的移动开销。隐含调用 vector<T> 中 T 的构造函数，也更简洁。
+  }
+
+}
 
 
 

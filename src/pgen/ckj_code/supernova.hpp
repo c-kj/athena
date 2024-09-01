@@ -26,30 +26,6 @@ struct Supernovae;
 struct SupernovaParameters;
 struct SupernovaEvent;
 
-// 单个（种）超新星的信息。目前，一个 SupernovaParameters 对象代表「一种超新星」，即所有参数相同、只有时间和位置不同的多个超新星。
-struct SupernovaParameters {
-  SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, const int i);
-  
-  const int ndim;
-  // std::vector<Real> time_list;
-  //TODO 这些变量为什么要在这里赋值？有必要吗？
-  Real energy = 0.0;
-  Real mass = 0.0;
-  Vector velocity = {0, 0, 0};
-
-  std::string region_name;  //TODO 名称改为 injection_shape ？连着输入参数模板一起改。 反正输入参数中目前还无需指定，只用默认值。
-  Real radius, mass_radius;
-  Point center;
-
-  std::vector<std::unique_ptr<SupernovaEvent>> event_list;
-
-  // 不一定会用上的属性。目前还没写实现
-  // std::string name;
-  // std::string type;
-
-  // void InitSupernovaEvents();
-    
-};
 
 // 表示单个 SN 爆炸的事件。只包含简单的信息（t,x,v 等），其他统一的参数在 SupernovaParameters 对象中。 
 struct SupernovaEvent {
@@ -70,6 +46,28 @@ struct SupernovaEvent {
 
   std::string Info();
 };
+
+
+// 单个（种）超新星的信息。目前，一个 SupernovaParameters 对象代表「一种超新星」，即所有参数相同、只有时间和位置不同的多个超新星。
+struct SupernovaParameters {
+  SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, const int i);
+  
+  const int ndim;
+  // 基本类型 (int, double, ...) 的成员变量需要显式初始化，否则是未定义的值。
+  Real energy = 0.0;
+  Real mass = 0.0;
+
+  std::string region_name;  //TODO 名称改为 injection_shape ？连着输入参数模板一起改。 反正输入参数中目前还无需指定，只用默认值。
+  Real radius, mass_radius;
+
+  std::vector<std::unique_ptr<SupernovaEvent>> event_list;
+
+  // 不一定会用上的属性。目前还没写实现
+  // std::string name;
+  // std::string type;
+    
+};
+
 
 
 // 用于存储所有超新星，控制其注入

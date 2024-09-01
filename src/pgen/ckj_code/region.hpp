@@ -25,6 +25,12 @@ inline Vector CrossProduct(const Vector &a, const Vector &b) {
   };
 }
 
+// constexpr 函数用于编译时字符串比较（这个是 copilot 写的）
+constexpr bool str_equal(const char* str1, const char* str2) {
+    return (*str1 == *str2) && (*str1 == '\0' || str_equal(str1 + 1, str2 + 1));
+}
+// 在编译时检查坐标系是否为 cartesian
+static_assert(str_equal(COORDINATE_SYSTEM, "cartesian"), "目前 Region 计算只支持 cartesian 坐标系。其他坐标系下的 Region 并不正确。");
 
 struct Region {
   int dim;
@@ -40,6 +46,17 @@ struct Ball : public Region {
   Real radius;
 
   Ball(const Point &center, const Real radius, const int dim);
+
+  bool contains(const Point &point) const override;
+};
+
+// 3D 的长方体
+struct Cuboid : public Region {
+  Point min_corner;
+  Point max_corner;
+  std::array<Real, 3> edge_lengths;
+
+  Cuboid(const Point &min_corner, const Point &max_corner);
 
   bool contains(const Point &point) const override;
 };
