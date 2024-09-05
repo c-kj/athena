@@ -369,7 +369,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   rho_in_BH = pin->GetReal("problem","rho_in_BH");  //TODO 把 rho_in_BH 改名为 n_in_BH，设定默认值，并且在默认模板中不设定值。
 
   // 构造我自定义机制的对象
-  //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时、跨 MPI rank 的一致性。
+  //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
   initial_condition = std::unique_ptr<InitialCondition>(new InitialCondition(this, pin));
 
   cooling = Cooling(this, pin);  // 初始化 cooling

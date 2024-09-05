@@ -54,6 +54,16 @@
 					"label": "实际调用 TaskFunc"
 				}
 			]
+		},
+		{
+			"path": "src/mesh/mesh.cpp",
+			"bookmarks": [
+				{
+					"line": 1148,
+					"column": 15,
+					"label": "限制步长增长不得超过 2 倍"
+				}
+			]
 		}
 	]
 }
