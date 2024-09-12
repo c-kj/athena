@@ -203,7 +203,7 @@ Supernovae::Supernovae(Mesh *pmy_mesh, ParameterInput *pin) :
   }
   
   InitSupernovaParameters(pin);
-  InitSupernovaEvents();
+  GatherSupernovaEvents();
   if (Globals::my_rank == 0) { PrintInfo(); }
 }
 
@@ -224,7 +224,7 @@ void Supernovae::InitSupernovaParameters(ParameterInput *pin) {
 
 
 //TODO 这个函数名字不太合适，其实仅仅是把 supernova_paras_list 中的 SupernovaEvent 指针放入 supernova_list，并排序
-void Supernovae::InitSupernovaEvents() {
+void Supernovae::GatherSupernovaEvents() {
   // 把所有 SupernovaParameters 中的 SupernovaEvent 指针放入 supernova_list
   for (const auto& paras : supernova_paras_list) {  // 遍历所有 SupernovaParameters
     for (const auto& SN: paras->event_list) {  // 把每个 paras 对应的 events（的裸指针）都放入 supernova_list
@@ -251,15 +251,25 @@ void Supernovae::PrintInfo() const {
 
 
 void Supernovae::GetSupernovaeToInject(const Real time, const Real dt) {
-  //TODO 这个函数目前有点冗余：每个 MeshBlock 都会调用一次。但实际上只需要在整个 Mesh 上调用一次就够了。可以考虑放到 UserWorkInLoop 中，或者用 static 变量来对比 time 和 dt 是否变化。 
-  // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
-  supernova_to_inject = {}; // 每次都要先清空
-  for (auto SN : supernova_list) {  //TODO 这里每次都遍历整个 supernova_list，如果 SN 数量很多，可能会很慢。有待改为用双指针。
-    //BUG 这里似乎应该左开右闭？SourceTerm 末尾的时间究竟应该算时间步的末尾还是开头？？？ 
-    if (time <= SN->time && SN->time < time + dt) {
-      supernova_to_inject.push_back(SN);  // 把 SN 的指针放入 supernova_to_inject
-    }
-  }
+  // 对比 time 和 dt 是否有变化，避免重复计算。在每个节点上只需要计算一次，而无需对每个 MeshBlock 都计算一次。
+  static Real last_time = -1.0, last_dt = -1.0;    // static 初始化为 -1，避免一开始就相等
+  if (time == last_time && dt == last_dt) return;  // 如果 time 和 dt 没有变化，直接跳出
+  last_time = time; last_dt = dt;
+
+  // 双指针法：寻找 start 和 end，这两个 iterator 用于指示 supernova_list 中当前时间步内需要注入的 SN 的范围。
+  const Real end_time = time + dt;
+  static auto start = supernova_list.begin();  // start 是 static 的，继承上次的位置，避免每次都从头开始找
+  if (time < last_time) { start = supernova_list.begin(); }  // 如果时间倒流 (dt < 0) 或者在 InSourceTerm 时机注入且各 stage 的起始时间并非单调不减，则改为从头开始找。不过这种情形目前应该不会出现。
+  // 找到新的 start 和 end。如果是左闭右开 ( time <= t and t < time + dt )，则这两个 lambda 判断都是 >=；若是左开右闭，则都是 >。
+  //BUG 这里似乎应该左开右闭？SourceTerm 末尾的时间究竟应该算时间步的末尾还是开头？？？ 
+  start = std::find_if(start, supernova_list.end(), 
+                      [time](const SupernovaEvent *SN) { return SN->time >= time; }
+                      );
+  auto end = std::find_if(start, supernova_list.end(), 
+                      [end_time](const SupernovaEvent *SN) { return SN->time >= end_time; }
+                      );  // 找 end 时，仍然从 start 开始找，因为没准儿 dt 会比上次缩短，end 未必总是单增的。
+
+  supernova_to_inject.assign(start, end); // 把找到的 SN 指针放入 supernova_to_inject。assign 会自动清空，不必手动 clear。
 }
 
 void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Real dt,

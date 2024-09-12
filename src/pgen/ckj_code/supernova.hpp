@@ -90,14 +90,16 @@ struct Supernovae {
 
   std::vector<std::unique_ptr<SupernovaParameters>> supernova_paras_list;  // 储存所有 SupernovaParameters。这里用 unique_ptr，表明所有权在此管理。
   // 以下两个 vector 使用 raw pointer，因为 SupernovaEvent 由 SupernovaParameters 管理。
-  std::vector<SupernovaEvent*> supernova_list;  // 储存所有单个 SupernovaEvent
-  std::vector<SupernovaEvent*> supernova_to_inject;  // 储存当前时刻需要注入的超新星，在每个主循环的 cycle 中更新
+  std::vector<SupernovaEvent*> supernova_list;       // 储存所有单个 SupernovaEvent。//* 注意，初始化后不能再对 supernova_list 做改变，否则 start 迭代器会失效
+  std::vector<SupernovaEvent*> supernova_to_inject;  // 储存当前时间步需要注入的超新星，通过 GetSupernovaeToInject 成员函数更新
 
   void InitSupernovaParameters(ParameterInput *pin);
-  void InitSupernovaEvents();
+  void GatherSupernovaEvents();
   void PrintInfo() const;
 
-  void GetSupernovaeToInject(const Real time, const Real dt);
+  // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
+  void GetSupernovaeToInject(const Real time, const Real dt);  
+  
   void SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
