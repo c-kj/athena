@@ -1,6 +1,37 @@
 {
     "configurations": [
         {
+            "name": "(gdb) 管道附加",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceRoot}/bin/athena",
+            "processId": "${command:pickRemoteProcess}",
+            "pipeTransport": {
+                "debuggerPath": "/usr/bin/gdb",  // 调试器的路径
+                "pipeProgram": "/usr/bin/ssh",  // 用于建立管道的程序
+                "pipeArgs": [
+                    "-T",  // 在终端上禁用伪终端
+                    "-o",  // 指定 ssh 选项
+                    "SendEnv=PWD",  // 发送本地环境变量到远程主机
+                    "l02c15n4"  //CHANGEME 远程主机的名称或 IP 地址
+                ],  // 用于建立管道的参数
+                "pipeCwd": ""  // 管道的当前工作目录
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "name": "(gdb) 启动 on wm2",
             "type": "cppdbg",
             "request": "launch",

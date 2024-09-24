@@ -8,6 +8,7 @@
 enum PassiveScalarIndex {SN};
 
 // SourceTerm （主要是 SN 和 cooling）的注入时机。按照单个 cycle 内的先后顺序排列，从而可以进行 < 比较
+// 有关源项的时机，参看我的笔记： 《黑洞吸积 SN 湍流 project.md》和《黑洞吸积 SN 湍流 TODO 历史.md》
 enum class SourceTermPosition {InSourceTerm, AfterSourceTerm, UserWorkInLoop}; 
 
 // 用于处理 input 参数中的字符串。对这个 map 使用 .at 方法来获取对应的 SourceTermPosition，如果不存在则会抛出异常

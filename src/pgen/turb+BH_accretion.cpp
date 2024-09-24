@@ -145,16 +145,18 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           }
         }
 
-        //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中
-        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，放到 SimulationRegion 类中。这两个函数的调用是不是应该放在 UserWorkInLoop 中？这样只需调用一次，而且 RK2 关心的是变化量，可能不能准确一步抵达目标？
+        //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中？还是放到 SinkRegion 类中？
+        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，放到 SimulationRegion 类中。这两个函数的调用是不是应该放在 AfterSourceTerm 中？这样只需调用一次，而且 RK2 关心的是变化量，可能不能准确一步抵达目标？
+        //* 如果要把 sink 内的处理抽出来，要注意源项的顺序，因为 sink 的源项要记录吸积物理量，依赖于 cons
         // 进入黑洞的处理
         if (r < R_in) {
-          //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！
-          // 计算被 sink region 吸收的物理量：质量、角动量、SN tracer。
-          const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
+          // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
+          //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
+          const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。
           const Real cell_mass = cons(IDN,k,j,i) * cell_volume;
 
           // 质量
+          //BUG 这里把 density floor 的质量也一并算进去了，最好是剔除。不过影响不太大
           pmb->ruser_meshblock_data[I_accreted_mass](0) += cell_mass;  // 记录被 BH 吸收的质量
           pmb->ruser_meshblock_data[I_accretion_rate](0) += cell_mass;  // 同时也记到 I_accretion_rate 里，最后加总后再除以 dt。注意这里必须是 +=，因为这是对每个格点的质量进行累加。
 
@@ -180,13 +182,14 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           }
 
           // 处理 Sink Region 内的物理量改变
-          cons(IDN,k,j,i) = std::min(rho_in_BH, rho);
+          //? 这里似乎不需要 min，因为 sink 内的流体密度（= sink密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
+          cons(IDN,k,j,i) = std::min(rho_in_BH, rho);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
           // 修改能量
           if (NON_BAROTROPIC_EOS) {
-            cons(IEN,k,j,i) = 0.0 + 0.0;          //? 这里的处理方式合适吗？动量为 0 应该没错，能量（压强）应该是个小值还是 0 ？
+            cons(IEN,k,j,i) = 0.0 + 0.0;  // 把内能（压强）清零（压强会由于 floor 而有一个小值）。动能也是 0.
           }
         }
         //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
@@ -229,7 +232,7 @@ Real MyTimeStep(MeshBlock *pmb) {
   if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::UserWorkInLoop) {
     // 根据 supernova_to_inject 是否为空来判断，实际上会把所有 MeshBlock 的都算进来。但反正是取最小值，所以不影响结果。
     if (!supernovae.supernova_to_inject.empty()) {
-      min_dt = std::min(min_dt, 1e-8);
+      min_dt = std::min(min_dt, 1e-8);  //TEMP 这里的数值是手动写的，可能需要更改
     }
   }
 
@@ -269,6 +272,9 @@ inline Real hst_dt_user(MeshBlock *pmb, int iout) {
 inline Real hst_accreted_mass(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[I_accreted_mass](0);
 }
+// 输出当前时间步内的 accretion rate
+//BUG hst enroll 的函数每 dcycle 步才调用一次！不应该在这里清零！这造成了 accretion rate 的输出大了 dcycle 倍！
+//* 修这个 bug 时，要注意 hst 函数间隔 dcycle 才调用、各节点独立、 InSourceTerm 被调用两次且 dt 不同、累加清空时机
 inline Real hst_accretion_rate(MeshBlock *pmb, int iout) {
   Real accretion_rate = pmb->ruser_meshblock_data[I_accretion_rate](0) / pmb->pmy_mesh->dt;  // 除以 dt，得到每秒的 accretion rate
   pmb->ruser_meshblock_data[I_accretion_rate](0) = 0;  // 重置
@@ -428,6 +434,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     N_UserHistoryOutput // 总个数
   };
 
+  // 如果不 Enroll 某些 hst 函数，那么对应的 user_history_func_[i] 就会是 nullptr，而在 HistoryOutput 中有判空。 //? 会输出 nan 还是 0 还是什么？有待试验
+  //TODO 给这些 hst 加条件，比如 accretion 相关量只有在存在 sink 的时候启用；SN 相关量只有在存在 SN 的时候启用。
+  //? 用 hst_NaN 来给出空输出，还是直接用默认的 nullptr 的输出？
+
   AllocateUserHistoryOutput(N_UserHistoryOutput);
   EnrollUserHistoryOutput(I_num_MeshBlocks, hst_num_MeshBlocks, "num_MeshBlocks");
   EnrollUserHistoryOutput(I_dt_hyperbolic, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
@@ -521,14 +531,15 @@ void Mesh::UserWorkInLoop() {
 }
 
 
-// 调用时机：每个将要输出 output 的时间步的末尾。//? 和 Mesh::UserWorkInLoop 谁先？
+// 调用时机：每个将要输出 output 的时间步的末尾。(但不包括 hst 输出，因为太频繁了) //? 和 Mesh::UserWorkInLoop 谁先？
 // 函数用途：计算用户定义的输出变量
 void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
   // 计算 uov
   for(int k=ks; k<=ke; k++) {
     for(int j=js; j<=je; j++) {
       for(int i=is; i<=ie; i++) {
-        // user_out_var(I_test,k,j,i) = phydro->w(IPR,k,j,i)/phydro->w(IDN,k,j,i);
+        // user_out_var(I_test,k,j,i) = phydro->w(IPR,k,j,i)/phydro->w(IDN,k,j,i);  // 例子
+        // cooling_rate 不在这里计算，而是每一个 timestep 在计算 cooling 时储存到 uov 中。
       }
     }
   }
