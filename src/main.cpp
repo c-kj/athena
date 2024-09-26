@@ -49,6 +49,9 @@
 #include "task_list/chem_rad_task_list.hpp"
 #include "utils/utils.hpp"
 
+// 我自己的 plugin
+#include "pgen/ckj_code/ckj_plugin.hpp"
+
 // MPI/OpenMP headers
 #ifdef MPI_PARALLEL
 #include <mpi.h>
@@ -445,6 +448,8 @@ int main(int argc, char *argv[]) {
   //=== Step 8. === START OF MAIN INTEGRATION LOOP =======================================
   // For performance, there is no error handler protecting this step (except outputs)
 
+  ckj_plugin::GetPointers(pouts, ptlist); // 获取一些拿不到的指针
+
   if (Globals::my_rank == 0) {
     std::cout << "\nSetup complete, entering main loop...\n" << std::endl;
   }
@@ -510,6 +515,9 @@ int main(int argc, char *argv[]) {
     }
 
     for (int stage=1; stage<=ptlist->nstages; ++stage) {
+
+      ckj_plugin::UserWorkBeforeStage(pmesh, stage); // 在每个 cycle 开始前，执行自定义的操作
+
       ptlist->DoTaskListOneStage(pmesh, stage);
       if (ptlist->CheckNextMainStage(stage)) {
         if (SELF_GRAVITY_ENABLED == 1) // fft (0: discrete kernel, 1: continuous kernel)

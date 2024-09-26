@@ -49,9 +49,6 @@ std::string debug_filepath, verbose_filepath;
 std::ofstream debug_stream;
 
 
-// integrator 的最后一个 stage 的 beta 值，即传入 SourceTerm 的 dt 与当前 cycle 的 mesh_dt 之比。
-Real beta_last_stage;
-
 
 // 源项
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,

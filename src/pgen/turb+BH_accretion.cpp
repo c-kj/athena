@@ -42,6 +42,7 @@
 
 // 自定义的头文件
 #include "turb+BH_accretion.hpp"
+#include "ckj_code/ckj_plugin.hpp"
 #include "ckj_code/utils.hpp"
 #include "ckj_code/region.hpp"
 #include "ckj_code/refinement_condition.hpp"
@@ -50,11 +51,31 @@
 #include "ckj_code/my_outputs.hpp"
 
 
-// 用于在 SourceTerm 中判断当前是否为最后一个 stage。目前使用 dt_ratio 来判断。
-inline bool IsLastStage(const Real dt_ratio) {
-  // 目前看来，我猜测 orbital_advection 和 integrator 不能在运行时动态修改，但可以在 restart 时通过 cmd 或 input file 更改。因此，只需在 InitUserMeshData 中拿到 integrator 即可。但有待验证。
-  return dt_ratio == beta_last_stage;
+
+/* -------------------------------------------------------------------------- */
+/*                                 ckj_plugin                                 */
+/* -------------------------------------------------------------------------- */
+
+// 文件级变量。通过 ckj_plugin 从 main.cpp 中获取。
+TaskList *ptlist;
+int current_stage;  // 目前这个变量以文件级变量放在 pgen 中。因为如果放在 ckj_plugin.hpp 中，为了避免违反 ODR 比较麻烦，需要 extern 声明并且在别处定义，或者在里面嵌套一个匿名 namespace。
+int nstages;  // 所选的 time integrator 的 stage 总数，用于判断是否为最后一个 stage。从 ckj_plugin::GetPointers 中获取。
+
+namespace ckj_plugin {
+  void GetPointers(Outputs *pouts, TaskList *ptlist) {
+    ::ptlist = ptlist; // 规避重名，用 :: 来指代全局命名空间。
+    nstages = ptlist->nstages;
+  }
+
+  void UserWorkBeforeStage(Mesh *pmesh, int stage) {
+    current_stage = stage;
+  }
 }
+
+
+/* -------------------------------------------------------------------------- */
+/*                                Source Terms                                */
+/* -------------------------------------------------------------------------- */
 
 // 这个函数只在 time integrator 的最后一个 stage 调用。通过 IsLastStage 函数来判断。
 void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
@@ -100,11 +121,18 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
 
   // 中心黑洞的引力
   if (M_BH != 0.0) {
+
+    if (current_stage == 1) {
+      //TODO 把清零的步骤抽象成函数，更清晰
+      pmb->ruser_meshblock_data[I_accretion_rate](0) = 0.0;  
+      pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0.0;  
+    }
+
     SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
-  Real mesh_dt = pmb->pmy_mesh->dt;
-  if (IsLastStage(dt/mesh_dt)) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
+
+  if (current_stage == nstages) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
     SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
@@ -114,6 +142,9 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+              
+  Real mesh_dt = pmb->pmy_mesh->dt;
+
   Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     z = pmb->pcoord->x3v(k);
@@ -122,7 +153,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 #pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         x = pmb->pcoord->x1v(i);
-        r = sqrt(x*x + y*y + z*z);
+        r = std::sqrt(x*x + y*y + z*z);
         r3 = r*r*r;
         
         rho = prim(IDN,k,j,i); 
@@ -146,19 +177,20 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         }
 
         //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中？还是放到 SinkRegion 类中？
-        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，放到 SimulationRegion 类中。这两个函数的调用是不是应该放在 AfterSourceTerm 中？这样只需调用一次，而且 RK2 关心的是变化量，可能不能准确一步抵达目标？
+        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，作为单独的源项函数，根据 R_in 判断是否启用。放到 SimulationRegion 类中？
         //* 如果要把 sink 内的处理抽出来，要注意源项的顺序，因为 sink 的源项要记录吸积物理量，依赖于 cons
         // 进入黑洞的处理
         if (r < R_in) {
           // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
           //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
           const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。
-          const Real cell_mass = cons(IDN,k,j,i) * cell_volume;
+          const Real rho_new = std::min(rho_in_BH, rho);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
+          //? 这里似乎不需要 min，因为 sink 内的流体密度（= sink密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
+          const Real accreted_mass = (cons(IDN,k,j,i) - rho_new) * cell_volume;  // 计算当前 cell 内减去的质量
 
           // 质量
-          //BUG 这里把 density floor 的质量也一并算进去了，最好是剔除。不过影响不太大
-          pmb->ruser_meshblock_data[I_accreted_mass](0) += cell_mass;  // 记录被 BH 吸收的质量
-          pmb->ruser_meshblock_data[I_accretion_rate](0) += cell_mass;  // 同时也记到 I_accretion_rate 里，最后加总后再除以 dt。注意这里必须是 +=，因为这是对每个格点的质量进行累加。
+          pmb->ruser_meshblock_data[I_accreted_mass](0)  += accreted_mass;  // 记录被 BH 吸收的质量
+          pmb->ruser_meshblock_data[I_accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
 
           // 动量
           Vector momentum;
@@ -176,14 +208,13 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           // SN Tracer
           if (NSCALARS > 0) {
             Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume;
-            pmb->ruser_meshblock_data[I_accreted_SN_tracer](0) += SN_tracer_mass;
-            pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) += SN_tracer_mass;
-            cons_scalar(PassiveScalarIndex::SN,k,j,i) = 0;  // 清空 SN Tracer
+            pmb->ruser_meshblock_data[I_accreted_SN_tracer](0)       += SN_tracer_mass;
+            pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
           }
 
+
           // 处理 Sink Region 内的物理量改变
-          //? 这里似乎不需要 min，因为 sink 内的流体密度（= sink密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
-          cons(IDN,k,j,i) = std::min(rho_in_BH, rho);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
+          cons(IDN,k,j,i) = rho_new;  // 把密度设定为 sink 密度
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
@@ -191,7 +222,11 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           if (NON_BAROTROPIC_EOS) {
             cons(IEN,k,j,i) = 0.0 + 0.0;  // 把内能（压强）清零（压强会由于 floor 而有一个小值）。动能也是 0.
           }
+          if (NSCALARS > 0) {
+            cons_scalar(PassiveScalarIndex::SN,k,j,i) = 0.0;  // 清空 sink 内的 SN Tracer
+          }
         }
+
         //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
         //? 或者，应该用边界处理？看看其他论文怎么做的，问问 Kohei。
         //* 也许还需要允许选择不同的处理方式？不一定非得保持初值？尤其是对于 approx_Bondi 这种。
@@ -269,24 +304,23 @@ inline Real hst_dt_user(MeshBlock *pmb, int iout) {
   // 如果没 EnrollUserTimeStepFunction，这里的 dt_user 会是 Athena++ 内部初始化时设定的 std::numeric_limits<Real>::max()
 }
 
+// 累计吸积的质量
 inline Real hst_accreted_mass(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[I_accreted_mass](0);
 }
 // 输出当前时间步内的 accretion rate
-//BUG hst enroll 的函数每 dcycle 步才调用一次！不应该在这里清零！这造成了 accretion rate 的输出大了 dcycle 倍！
-//* 修这个 bug 时，要注意 hst 函数间隔 dcycle 才调用、各节点独立、 InSourceTerm 被调用两次且 dt 不同、累加清空时机
 inline Real hst_accretion_rate(MeshBlock *pmb, int iout) {
-  Real accretion_rate = pmb->ruser_meshblock_data[I_accretion_rate](0) / pmb->pmy_mesh->dt;  // 除以 dt，得到每秒的 accretion rate
-  pmb->ruser_meshblock_data[I_accretion_rate](0) = 0;  // 重置
+  Real accretion_rate = pmb->ruser_meshblock_data[I_accretion_rate](0);
   return accretion_rate;
 }
 
+// 累计吸积的 SN tracer 质量
 inline Real hst_accreted_SN_tracer(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[I_accreted_SN_tracer](0);
 }
+// 输出当前时间步内的 accretion rate of SN tracer
 inline Real hst_accretion_rate_SN_tracer(MeshBlock *pmb, int iout) {
-  Real accretion_rate_SN_tracer = pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) / pmb->pmy_mesh->dt;  // 除以 dt，得到每秒的 accretion rate
-  pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0;  // 重置
+  Real accretion_rate_SN_tracer = pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0);
   return accretion_rate_SN_tracer;
 }
 
@@ -343,27 +377,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 #endif
   }
 
-  // 用于 IsLastStage 函数
-  if (orbital_advection != 0) {
-    std::cout << "### ERROR: 启用了 orbital_advection，但目前我对 SourceTermAtLastStage 的实现只使用 dt_ratio 的值来 \
-    简单判断。对于 orbital_advection，需要拿到 TaskList 的指针，获取最后一个 stage 的 beta；或者直接根据 stage 判断。\n";
-    throw std::runtime_error("orbital_advection 与自定义的 SourceTermAtLastStage 不兼容！");
-  }
-  // 以下各个 Integrator 的 beta 的值都是假设没有启用 orbital_advection 的。从 time_integrator.cpp 中抄来：
-  // rk1: beta == {1.0}
-  // vl2: beta == {0.5, 1.0}
-  // rk2: beta == {1.0, 0.5}
-  // rk3: beta == {1.0, 0.25, TWO_3RD}
-  // rk4: beta == {1.193743905974738, 0.099279895495783, 1.131678018054042, 0.310665766509336}
-  // ssprk5_4: 太长了……反正现在也用不着
-  std::string integrator = pin->GetString("time", "integrator");
-  std::unordered_map<std::string, Real> beta_last_stage_map = {
-    {"rk1", 1.0},
-    {"vl2", 1.0},
-    {"rk2", 0.5},
-    {"rk3", TWO_3RD},
-  };
-  beta_last_stage = beta_last_stage_map.at(integrator);  // 使用 .at 来获取值，如果 key 不存在会抛出异常。
 
   // 从 input file 中读取参数，存到 pgen 文件的模块级别变量中
   Real M_BH_in_Msun = pin->GetOrAddReal("problem","M_BH", 0.0);
@@ -469,12 +482,13 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
   AllocateRealUserMeshBlockDataField(N_RealUserMeshBlockData);
-  ruser_meshblock_data[I_accreted_mass].NewAthenaArray(1);  // 黑洞吸积的总质量，在每个 MeshBlock 上单独存储。
-  ruser_meshblock_data[I_accretion_rate].NewAthenaArray(1);  // 用于计算黑洞吸积率，储存当前 dt 内吸积的质量，最后除以 dt。
-  ruser_meshblock_data[I_accreted_SN_tracer].NewAthenaArray(1);  // 被黑洞吸积的 SN ejecta 的质量，在每个 MeshBlock 上单独存储。
-  ruser_meshblock_data[I_accretion_rate_SN_tracer].NewAthenaArray(1);  // 用于计算吸积率中 SN tracer 的质量。储存当前 dt 内吸积的质量，最后除以 dt。
-  ruser_meshblock_data[I_accreted_momentum].NewAthenaArray(3);  // 黑洞吸积的总动量，在每个 MeshBlock 上单独存储。
-  ruser_meshblock_data[I_accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量，在每个 MeshBlock 上单独存储。
+  // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。
+  ruser_meshblock_data[I_accreted_mass].NewAthenaArray(1);  // 黑洞吸积的总质量
+  ruser_meshblock_data[I_accretion_rate].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
+  ruser_meshblock_data[I_accreted_SN_tracer].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量
+  ruser_meshblock_data[I_accretion_rate_SN_tracer].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
+  ruser_meshblock_data[I_accreted_momentum].NewAthenaArray(3);  // 黑洞吸积的总动量
+  ruser_meshblock_data[I_accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
 
   // 设定 uov
   AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
