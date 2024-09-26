@@ -7,20 +7,46 @@
 #SBATCH --ntasks=64                   # 总任务数
 
 
+# 以下不启用，用多个 # 号注释掉
+##SBATCH --partition=C064M1024G        # 设置分区
+
+
+
+# 输出一些信息
+echo "====================== Info ======================="
+echo "当前时间: $(date)"
+echo "主机名: $(hostname)"
+echo "用户名: $(whoami)"
+echo "运行脚本: $0"
+echo "工作目录: $(pwd)"
+echo "PATH: $PATH"
+echo
+echo "Slurm 相关信息:"
+echo "作业 ID: $SLURM_JOB_ID"
+echo "作业名称: $SLURM_JOB_NAME"
+echo "提交目录: $SLURM_SUBMIT_DIR"
+echo "分配的节点数: $SLURM_JOB_NUM_NODES"
+echo "每个节点的任务数: $SLURM_NTASKS_PER_NODE"
+echo "总任务数: $SLURM_NTASKS"
+echo "节点列表: $SLURM_JOB_NODELIST"
+echo "分区: $SLURM_JOB_PARTITION"
+echo "每个 CPU 的内存: $SLURM_MEM_PER_CPU MB"
+echo "每个节点的内存: $SLURM_MEM_PER_NODE"
+echo "作业账户: $SLURM_JOB_ACCOUNT"
+echo "作业 QOS: $SLURM_JOB_QOS"
+echo "===================================================="
+echo  # 输出一个空行
+
+
+# 重置 SECONDS 变量，用于计时
+SECONDS=0
+
 # 导入MPI运行环境
 module purge
 export MPICH_CXX=icpx
 module load compiler hdf5/1.12.1-p-oneapi_2023.0 mpi fftw
 module list
 
-# 输出一些信息
-#TODO 输出当前的日期、时间、主机名、用户、SLURM相关的信息
-echo "job id: $SLURM_JOB_ID"
-echo "job name: $SLURM_JOB_NAME"
-echo "number of tasks: $SLURM_NTASKS"
-echo "number of nodes: $SLURM_JOB_NUM_NODES"
-echo "working path = $(pwd)"
-echo "PATH = $PATH"
 
 # 检查是否只有一个 *.athinput 文件
 
@@ -59,7 +85,7 @@ VTUNE_CMD=""
 # VTUNE_CMD="vtune -collect hotspots -r vtune_result/athena -trace-mpi -data-limit=200 -target-duration-type=short"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
 
 ATHENA_CMD="athena -d output -i \"$athinput_file\""
-# ATHENA_CMD="athena -d output -i \"$athinput_file\" -r \"Bondi.00001.rst\""
+# ATHENA_CMD="$ATHENA_CMD -r \"Bondi.00001.rst\""   # 从某个 rst 文件开始继续模拟
 
 # 执行MPI并行计算程序
 echo "[Running Athena++]: "
@@ -83,9 +109,16 @@ PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/Bondi+
 PYTHON_CMD="python \"$PYTHON_SCRIPT\""
 
 # 组装命令并执行
-echo "[Running post-processing script]: $PYTHON_SCRIPT"
-Post_Processing_COMMAND="$MPI_CMD $VTUNE_CMD $PYTHON_CMD"
-echo "[Running command]: $Post_Processing_COMMAND"
-eval "$Post_Processing_COMMAND"
+# echo "[Running post-processing script]: $PYTHON_SCRIPT"
+# Post_Processing_COMMAND="$MPI_CMD $VTUNE_CMD $PYTHON_CMD"
+# echo "[Running command]: $Post_Processing_COMMAND"
+# eval "$Post_Processing_COMMAND"
 
 # # srun --jobid=1948647 -N 24 -n 256  athena -d output -i Bondi+SAMR.athinput -r output/Bondi.00000.rst
+
+
+# 输出脚本运行时间
+echo
+echo "脚本运行完毕"
+echo "当前时间: $(date)"
+echo "运行时长: $SECONDS 秒"

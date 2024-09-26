@@ -454,6 +454,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollUserHistoryOutput(I_accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
 
   if (Globals::my_rank == 0) {
+    std::cout << "pgen 编译于: " << __DATE__ << " " << __TIME__ << '\n'; 
     // Print unit 相关信息
     punit->PrintCodeUnits();
     punit->PrintConstantsInCodeUnits();
@@ -576,7 +577,6 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
 // 函数用途：清理 MeshBlock::InitUserMeshData 分配的资源
 void Mesh::UserWorkAfterLoop(ParameterInput *pin) {
   // 这个函数用于在模拟结束后做一些事情
-  // TODO
   if (debug >= DEBUG_Main) {
     printf_and_save_to_stream(debug_stream, "DEBUG_Main: Mesh::UserWorkAfterLoop is called \n");
   }
