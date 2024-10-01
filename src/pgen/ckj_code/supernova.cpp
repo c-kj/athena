@@ -223,7 +223,6 @@ void Supernovae::InitSupernovaParameters(ParameterInput *pin) {
 }
 
 
-//TODO 这个函数名字不太合适，其实仅仅是把 supernova_paras_list 中的 SupernovaEvent 指针放入 supernova_list，并排序
 void Supernovae::GatherSupernovaEvents() {
   // 把所有 SupernovaParameters 中的 SupernovaEvent 指针放入 supernova_list
   for (const auto& paras : supernova_paras_list) {  // 遍历所有 SupernovaParameters

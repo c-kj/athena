@@ -40,8 +40,7 @@
 // #include <fstream>  // std::ofstream
 // #include <string>  // 这里无需 include，因为在 parameter_input.hpp 中已经 include 了
 
-// 自定义的头文件
-#include "turb+BH_accretion.hpp"
+// 自定义的头文件（各种模块）
 #include "ckj_code/ckj_plugin.hpp"
 #include "ckj_code/utils.hpp"
 #include "ckj_code/region.hpp"
@@ -50,7 +49,8 @@
 #include "ckj_code/cooling.hpp"
 #include "ckj_code/my_outputs.hpp"
 
-
+// 本 pgen 的头文件（以后考虑合并）
+#include "turb+BH_accretion.hpp"
 
 /* -------------------------------------------------------------------------- */
 /*                                 ckj_plugin                                 */
@@ -77,7 +77,38 @@ namespace ckj_plugin {
 /*                                Source Terms                                */
 /* -------------------------------------------------------------------------- */
 
-// 这个函数只在 time integrator 的最后一个 stage 调用。通过 IsLastStage 函数来判断。
+// 把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。
+void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
+  // 但是，第一个 stage 对 cons 的更新会进入第二个 stage 的 prim，
+  if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::InSourceTerm) {
+    cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 超新星的注入 // 目前默认并不在这里注入，如果随着源项注入，可能会炸步长 / 注入比例不对，但未经测试（暂时没必要尝试这个）。
+  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::InSourceTerm) {
+    supernovae.SuperNovaeSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 中心黑洞的引力
+  if (M_BH != 0.0) {
+    SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  if (current_stage == nstages) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
+    SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
+  if (R_in > 0.0) {
+    SMBH_sink(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+}
+
+
 void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
@@ -101,50 +132,12 @@ void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
   }
 };
 
-// Source Term 源项
-//* 应该只依赖于 prim 而修改 cons。不能修改 prim。不应该依赖于 cons（尤其是因为 cons 可能被前面的源项修改）。
-// 把各个源项拆分。这样需要反复进入循环好几次，但是更加清晰。也可以考虑把最内层循环内的各个步骤抽象成函数？
-void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
-             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
-             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
-             AthenaArray<Real> &cons_scalar) {
-  // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
-  // 但是，第一个 stage 对 cons 的更新会进入第二个 stage 的 prim，
-  if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::InSourceTerm) {
-    cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
-  // 超新星的注入 // 目前默认并不在这里注入，如果随着源项注入，可能会炸步长 / 注入比例不对，但未经测试（暂时没必要尝试这个）。
-  if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::InSourceTerm) {
-    supernovae.SuperNovaeSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
-  // 中心黑洞的引力
-  if (M_BH != 0.0) {
-
-    if (current_stage == 1) {
-      //TODO 把清零的步骤抽象成函数，更清晰
-      pmb->ruser_meshblock_data[I_accretion_rate](0) = 0.0;  
-      pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0.0;  
-    }
-
-    SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
-
-  if (current_stage == nstages) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
-    SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
-}
 
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-              
-  Real mesh_dt = pmb->pmy_mesh->dt;
-
+  //TODO 为了 simd 并行，把这里的声明挪到循环内，并测试。
   Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     z = pmb->pcoord->x3v(k);
@@ -161,7 +154,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         vy  = prim(IVY,k,j,i);
         vz  = prim(IVZ,k,j,i);
 
-        //? 只对黑洞外的区域施加引力，这样处理正确吗？不过在这里对 R_in 以内施加引力没用，接下来会被重设
+        // 只对黑洞外的区域施加引力。在这里对 R_in 以内施加引力没用，接下来会被重设
         //? 这里需要 && r <= R_out 吗？
         if (r >= R_in ) {
           cons(IM1,k,j,i) += - GM_BH*x/r3 * rho * dt;
@@ -176,9 +169,62 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           }
         }
 
-        //TODO 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中？还是放到 SinkRegion 类中？
-        //TODO 把黑洞内的处理、外部区域的处理（保持初值）抽出来，作为单独的源项函数，根据 R_in 判断是否启用。放到 SimulationRegion 类中？
-        //* 如果要把 sink 内的处理抽出来，要注意源项的顺序，因为 sink 的源项要记录吸积物理量，依赖于 cons
+        //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
+        //? 或者，应该用边界处理？看看其他论文怎么做的，问问 Kohei。
+        //* 也许还需要允许选择不同的处理方式？不一定非得保持初值？尤其是对于 approx_Bondi 这种。
+        // TODO 或许可以改为继承该格子之前的值？但怎么操作呢？在 source term 里面不知道能不能做这件事
+        // 应该可以把 ProblemGenerator 里的函数抽象出来，然后在这里调用
+        if (r > R_out) {
+          initial_condition->SetSingleCell(pmb, i, j, k);
+        }
+
+        // debug 信息：逐个格点检查 rho 是否为 nan
+        if (debug >= DEBUG_Cell && std::isnan(cons(IDN,k,j,i)) ) {
+          printf_and_save_to_stream(debug_stream, "DEBUG_Cell: rho is nan at x,y,z,r = (%f, %f, %f, %f) \n", x, y, z, r);
+        }
+
+      }
+    }
+  }
+  
+  // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
+  //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
+  // 对于那些 *dt 的增量更新操作不必考虑，但对于直接附加的量（SN 爆炸能量），需要专门处理。
+  if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
+    printf_and_save_to_stream(debug_stream, 
+    "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
+    time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
+  }
+
+  return;
+}
+
+
+
+//FUTURE 放到 SimulationRegion 类中？
+void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  // 在第一个 stage 清零吸积率，用于统计当前 cycle 内的吸积率。目前放在 SMBH_sink 源项内，是为了把涉及吸积量的计算都放在一起。
+  if (current_stage == 1) { 
+    pmb->ruser_meshblock_data[I_accretion_rate](0) = 0.0;  
+    pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0.0;  
+  }
+
+  Real mesh_dt = pmb->pmy_mesh->dt;
+  
+  Real x,y,z,r,rho;
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    z = pmb->pcoord->x3v(k);
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      y = pmb->pcoord->x2v(j);
+#pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        x = pmb->pcoord->x1v(i);
+        r = std::sqrt(x*x + y*y + z*z);
+
+        //FUTURE 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中？还是放到 SinkRegion 类中？
         // 进入黑洞的处理
         if (r < R_in) {
           // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
@@ -226,40 +272,13 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             cons_scalar(PassiveScalarIndex::SN,k,j,i) = 0.0;  // 清空 sink 内的 SN Tracer
           }
         }
-
-        //? 外部区域的处理，应该怎么做？目前是设定为保持初始值
-        //? 或者，应该用边界处理？看看其他论文怎么做的，问问 Kohei。
-        //* 也许还需要允许选择不同的处理方式？不一定非得保持初值？尤其是对于 approx_Bondi 这种。
-        // TODO 或许可以改为继承该格子之前的值？但怎么操作呢？在 source term 里面不知道能不能做这件事
-        // 应该可以把 ProblemGenerator 里的函数抽象出来，然后在这里调用
-        if (r > R_out) {
-          initial_condition->SetSingleCell(pmb, i, j, k);
-        }
-
-        // debug 信息：逐个格点检查 rho 是否为 nan
-        if (debug >= DEBUG_Cell && std::isnan(cons(IDN,k,j,i)) ) {
-          printf_and_save_to_stream(debug_stream, "DEBUG_Cell: rho is nan at x,y,z,r = (%f, %f, %f, %f) \n", x, y, z, r);
-        }
-
       }
     }
   }
-  
-  // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
-  //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
-  // 对于那些 *dt 的增量更新操作不必考虑，但对于直接附加的量（SN 爆炸能量），需要专门处理。
-  if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
-    printf_and_save_to_stream(debug_stream, 
-    "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
-    time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-  }
-
-  return;
 }
 
 
 
-//TODO 在注入 SuperNova 之后，立即减小 TimeStep？
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
 Real MyTimeStep(MeshBlock *pmb) {
   Real min_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数。这里不用 infinity() 是为了万一启用 -ffast-math 之类的编译选项的话，对无穷大的处理可能不正确
@@ -267,7 +286,7 @@ Real MyTimeStep(MeshBlock *pmb) {
   if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::UserWorkInLoop) {
     // 根据 supernova_to_inject 是否为空来判断，实际上会把所有 MeshBlock 的都算进来。但反正是取最小值，所以不影响结果。
     if (!supernovae.supernova_to_inject.empty()) {
-      min_dt = std::min(min_dt, 1e-8);  //TEMP 这里的数值是手动写的，可能需要更改
+      min_dt = std::min(min_dt, 1e-8);  // 这里的数值是手动写的，可能需要更改。但反正目前决定 SN 不在 UserWorkInLoop 中注入，因此这里不会启用
     }
   }
 
@@ -482,7 +501,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
   AllocateRealUserMeshBlockDataField(N_RealUserMeshBlockData);
-  // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。
+  // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。这样还能在 restart 时自动储存恢复。
   ruser_meshblock_data[I_accreted_mass].NewAthenaArray(1);  // 黑洞吸积的总质量
   ruser_meshblock_data[I_accretion_rate].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
   ruser_meshblock_data[I_accreted_SN_tracer].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量

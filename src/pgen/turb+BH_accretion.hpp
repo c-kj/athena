@@ -50,8 +50,32 @@ std::ofstream debug_stream;
 
 
 
-// 源项
+/* -------------------------------------------------------------------------- */
+/*                                Source Terms                                */
+/* -------------------------------------------------------------------------- */
+
+// 本 pgen 中要 Enroll 的显式源项函数。在其中调用以下各个单独的源项函数。
+//* 应该只依赖于 prim 而修改 cons。不能修改 prim。不应该依赖于 cons（尤其是因为 cons 可能被前面的源项修改）。
+void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
+
+// 只在 time integrator 的最后一个 stage 调用的源项函数。
+void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
+
+// 中心黑洞的引力
 void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
+
+// 中心黑洞作为 sink region 的处理：记录吸积相关物理量，并清空 sink 内的各种 cons。
+//* 这个函数应该在所有的源项之后调用，因为吸积的量依赖于 cons，需要等其他源项对 cons 做完修改。
+void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar);
