@@ -250,7 +250,7 @@ void Supernovae::PrintInfo() const {
 
 
 void Supernovae::GetSupernovaeToInject(const Real time, const Real dt) {
-  // 对比 time 和 dt 是否有变化，避免重复计算。在每个节点上只需要计算一次，而无需对每个 MeshBlock 都计算一次。
+  // 对比 time 和 dt 是否有变化，避免重复计算。在每个 MPI Rank 上只需要计算一次，而无需对每个 MeshBlock 都计算一次。
   static Real last_time = -1.0, last_dt = -1.0;    // static 初始化为 -1，避免一开始就相等
   if (time == last_time && dt == last_dt) return;  // 如果 time 和 dt 没有变化，直接跳出
   last_time = time; last_dt = dt;
@@ -288,18 +288,17 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
   GetSupernovaeToInject(mesh_time, mesh_dt); // 寻找应在当前步中爆炸的 SN 时，使用 mesh_time 和 mesh_dt，而非 SourceTerm 传入的 time 和 dt
   if ( supernova_to_inject.empty() ) return; // 如果当前时间步没有超新星爆炸，直接跳出
   
-  //? 应该把 ijk 的遍历放在外面，还是把 Supernova 的遍历放在外面？可能要考虑到内存访问的连续性。
-  Real x,y,z,r; 
-  for (int k = pmb->ks; k <= pmb->ke; ++k) {
-    z = pmb->pcoord->x3v(k);
-    for (int j = pmb->js; j <= pmb->je; ++j) {
-      y = pmb->pcoord->x2v(j);
-#pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
-      for (int i = pmb->is; i <= pmb->ie; ++i) {
-        x = pmb->pcoord->x1v(i);
+  // 把 SN 的遍历放在外层，方便最内层 SIMD 矢量化，内存访问也更连续。
+  for (SupernovaEvent* SN : supernova_to_inject) {
+    for (int k = pmb->ks; k <= pmb->ke; ++k) {
+      Real z = pmb->pcoord->x3v(k);
+      for (int j = pmb->js; j <= pmb->je; ++j) {
+        Real y = pmb->pcoord->x2v(j);
+  #pragma omp simd // SIMD 矢量化。这里的循环体较为简单，应该可以成功？但不是性能热点，没多大提升。
+        for (int i = pmb->is; i <= pmb->ie; ++i) {
+          Real x = pmb->pcoord->x1v(i);
 
-        // 超新星爆炸的能量和质量注入。
-        for (SupernovaEvent* SN : supernova_to_inject) {
+          // 超新星爆炸的能量和质量注入。
           if ( SN->energy_region->contains({x,y,z}) ) {
             cons(IEN,k,j,i) += SN->energy_density * inject_ratio;
           }
@@ -331,7 +330,7 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
 }
 
 
-#if 0
+#if false
 Real Supernovae::SupernovaeTimeStep(MeshBlock *pmb) const {
   const Real mesh_time = pmb->pmy_mesh->time;
   const Real mesh_dt = pmb->pmy_mesh->dt;

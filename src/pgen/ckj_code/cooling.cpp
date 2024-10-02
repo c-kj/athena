@@ -79,17 +79,20 @@ Real Cooling::CoolingTimeScale(const Real E_thermal, const Real cooling_rate) {
 }
 
 Real Cooling::CoolingTimeStep(MeshBlock *pmb) const {
+  Real gm1 = (pmb->peos->GetGamma() - 1.0);
   Real cooling_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数
   for (int k=pmb->ks; k<=pmb->ke; ++k) {
     for (int j=pmb->js; j<=pmb->je; ++j) {
-      for (int i=pmb->is; i<=pmb->ie; ++i) {  // 这里涉及归约操作，Athena++ 的 OMP 好像是基于 MeshBlock 的，搞不清楚，这里就不用 OMP 了
+// #pragma omp simd reduction(min:cooling_dt)  // SIMD 矢量化加速。似乎因为内部调用太复杂无法内联，目前无法矢量化。目前不知道这里是不是性能热点，暂时不用。
+      for (int i=pmb->is; i<=pmb->ie; ++i) {
         Real rho = pmb->phydro->w(IDN,k,j,i);
         Real P = pmb->phydro->w(IPR,k,j,i); 
 
         //? 这里先计算 dt_cooling ，后续又调用 CoolingRate，重复计算了。可以考虑优化？但如果是 RK4 之类的积分器，其实总共要调用 4 次（各不同），可能意义不大？
         Real cooling_rate = CoolingRate(rho, P);
-        Real E_thermal = P / (pmb->peos->GetGamma() - 1.0);
+        Real E_thermal = P / gm1;
         Real dt = CFL_cooling * CoolingTimeScale(E_thermal, cooling_rate);   //calculate your own time step here
+
         cooling_dt = std::min(cooling_dt, dt);
       }
     }
@@ -171,7 +174,8 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
   //? 这里是否需要避免黑洞内被 Cooling 影响？（至于 R_out 之外应该不用避免 Cooling，否则压强反而不正确了）
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     for (int j = pmb->js; j <= pmb->je; ++j) {
-      for (int i = pmb->is; i <= pmb->ie; ++i) {  // Athena++ 的 OMP 好像是基于 MeshBlock 的，搞不清楚，如果涉及归约操作的话，OMP 并行可能有问题。先不启用。
+// #pragma omp simd // SIMD 矢量化加速。如果涉及相邻 cell 的平均，SIMD 可能会有问题。目前不知道这里是不是性能热点，暂时不用。循环内部太复杂，很可能无法矢量化。
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
 
         Real rho, P;
         if (use_prim_in_cooling) {  // 使用 prim 或 cons 来计算 rho、P

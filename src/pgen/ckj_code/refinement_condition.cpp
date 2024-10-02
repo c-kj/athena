@@ -42,6 +42,8 @@ int RefinementCondition_Point(MeshBlock *pmb, std::array<Real, 3> point, int lev
 
 
 // TEMP 用于shock 的压强、密度梯度细化条件
+// 可以借鉴其他的 pgen，搜索 EnrollUserRefinementCondition。
+// 似乎没法用 simd 矢量化，因为这里涉及相邻的格子。
 int RefinementCondition_Gradient(MeshBlock *pmb) {
   AthenaArray<Real> &w = pmb->phydro->w;
   Real dlnp = 0;

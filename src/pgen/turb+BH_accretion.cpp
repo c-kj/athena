@@ -137,22 +137,20 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-  //TODO 为了 simd 并行，把这里的声明挪到循环内，并测试。
-  Real x,y,z,r,r3,vx,vy,vz,rho; 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
-    z = pmb->pcoord->x3v(k);
+    Real z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
-      y = pmb->pcoord->x2v(j);
-#pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
+      Real y = pmb->pcoord->x2v(j);
+#pragma omp simd  // SIMD 矢量化。不确定是否成功。
       for (int i = pmb->is; i <= pmb->ie; ++i) {
-        x = pmb->pcoord->x1v(i);
-        r = std::sqrt(x*x + y*y + z*z);
-        r3 = r*r*r;
+        Real x = pmb->pcoord->x1v(i);
+        Real r = std::sqrt(x*x + y*y + z*z);
+        Real r3 = r*r*r;
         
-        rho = prim(IDN,k,j,i); 
-        vx  = prim(IVX,k,j,i);
-        vy  = prim(IVY,k,j,i);
-        vz  = prim(IVZ,k,j,i);
+        Real rho = prim(IDN,k,j,i); 
+        Real vx  = prim(IVX,k,j,i);
+        Real vy  = prim(IVY,k,j,i);
+        Real vz  = prim(IVZ,k,j,i);
 
         // 只对黑洞外的区域施加引力。在这里对 R_in 以内施加引力没用，接下来会被重设
         //? 这里需要 && r <= R_out 吗？
@@ -182,7 +180,6 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
         if (debug >= DEBUG_Cell && std::isnan(cons(IDN,k,j,i)) ) {
           printf_and_save_to_stream(debug_stream, "DEBUG_Cell: rho is nan at x,y,z,r = (%f, %f, %f, %f) \n", x, y, z, r);
         }
-
       }
     }
   }
@@ -214,25 +211,25 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
 
   Real mesh_dt = pmb->pmy_mesh->dt;
   
-  Real x,y,z,r,rho;
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
-    z = pmb->pcoord->x3v(k);
+    Real z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
-      y = pmb->pcoord->x2v(j);
-#pragma omp simd  // OpenMP 的 SIMD 并行。在纯 MPI 并行时可能不起作用？
-      for (int i = pmb->is; i <= pmb->ie; ++i) {
-        x = pmb->pcoord->x1v(i);
-        r = std::sqrt(x*x + y*y + z*z);
+      Real y = pmb->pcoord->x2v(j);
+      for (int i = pmb->is; i <= pmb->ie; ++i) { // 由于这个函数涉及许多吸积量的记录，是 reduction 操作，所以不启用 SIMD 矢量化。
+        Real x = pmb->pcoord->x1v(i);
+        Real r = std::sqrt(x*x + y*y + z*z);
+
+        Real dens = cons(IDN,k,j,i); // 用 dens 称呼 cons 守恒密度，与 prim 密度区分。
 
         //FUTURE 把是否在黑洞内、是否在 R_out 之外的判断抽出来，放到一个 SimulationRegion 类的实例方法中？还是放到 SinkRegion 类中？
         // 进入黑洞的处理
         if (r < R_in) {
           // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
           //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
-          const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。
-          const Real rho_new = std::min(rho_in_BH, rho);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
-          //? 这里似乎不需要 min，因为 sink 内的流体密度（= sink密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
-          const Real accreted_mass = (cons(IDN,k,j,i) - rho_new) * cell_volume;  // 计算当前 cell 内减去的质量
+          const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。其他 pgen 里用的 vol 长度都是 pmb->ncells1，但这个是包含了 2*NGHOST 的，感觉 pmb->blocksize->nx1 就够了，不知道为什么。
+          const Real dens_new = std::min(dens_in_BH, dens);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
+          //? 这里似乎不需要 min，因为 sink 内的流体密度（= 上一个 stage 剩下的 sink 密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
+          const Real accreted_mass = (dens - dens_new) * cell_volume;  // 计算当前 cell 内减去的质量
 
           // 质量
           pmb->ruser_meshblock_data[I_accreted_mass](0)  += accreted_mass;  // 记录被 BH 吸收的质量
@@ -260,7 +257,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
 
 
           // 处理 Sink Region 内的物理量改变
-          cons(IDN,k,j,i) = rho_new;  // 把密度设定为 sink 密度
+          cons(IDN,k,j,i) = dens_new;  // 把密度设定为 sink 密度
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
@@ -404,7 +401,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   R_in = pin->GetOrAddReal("problem","R_in", 0.0);
   R_out = pin->GetOrAddReal("problem","R_out", std::numeric_limits<Real>::max());
-  rho_in_BH = pin->GetReal("problem","rho_in_BH");  //TODO 把 rho_in_BH 改名为 n_in_BH，设定默认值，并且在默认模板中不设定值。
+  dens_in_BH = pin->GetReal("problem","rho_in_BH");  //TODO 把 rho_in_BH 改名为 n_in_BH，设定默认值，并且在默认模板中不设定值。
 
   // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
