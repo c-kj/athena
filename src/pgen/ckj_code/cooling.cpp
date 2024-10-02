@@ -221,7 +221,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
 
         cons(IEN,k,j,i) += dE;
 
-        pmb->user_out_var(I_cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中
+        pmb->user_out_var(UOV::cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中
         // 这里储存 dE/dt 而非 dE 是因为 dE/dt 才是物理的，不涉及人为的 dt。而且如果放在 InSourceTerm 中，那么会被调用半步。
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
       }

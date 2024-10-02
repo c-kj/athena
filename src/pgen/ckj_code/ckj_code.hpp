@@ -5,7 +5,9 @@
 #include <map>
 
 // Passive Scalar 与其对应的 index 的对应
-enum PassiveScalarIndex {SN};
+namespace PassiveScalarIndex {
+  enum PassiveScalarIndex {SN};
+}
 
 // SourceTerm （主要是 SN 和 cooling）的注入时机。按照单个 cycle 内的先后顺序排列，从而可以进行 < 比较
 // 有关源项的时机，参看我的笔记： 《黑洞吸积 SN 湍流 project.md》和《黑洞吸积 SN 湍流 TODO 历史.md》

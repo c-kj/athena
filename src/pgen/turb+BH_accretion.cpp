@@ -48,6 +48,7 @@
 #include "ckj_code/supernova.hpp"
 #include "ckj_code/cooling.hpp"
 #include "ckj_code/my_outputs.hpp"
+#include "ckj_code/hst_output.hpp"
 
 // 本 pgen 的头文件（以后考虑合并）
 #include "turb+BH_accretion.hpp"
@@ -203,10 +204,12 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+  namespace idx = RealUserMeshBlockDataIndex;  // 简化名称。反正这里只用得到 RealUserMeshBlockData
+
   // 在第一个 stage 清零吸积率，用于统计当前 cycle 内的吸积率。目前放在 SMBH_sink 源项内，是为了把涉及吸积量的计算都放在一起。
   if (current_stage == 1) { 
-    pmb->ruser_meshblock_data[I_accretion_rate](0) = 0.0;  
-    pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) = 0.0;  
+    pmb->ruser_meshblock_data[idx::accretion_rate](0) = 0.0;  
+    pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) = 0.0;  
   }
 
   Real mesh_dt = pmb->pmy_mesh->dt;
@@ -232,27 +235,27 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           const Real accreted_mass = (dens - dens_new) * cell_volume;  // 计算当前 cell 内减去的质量
 
           // 质量
-          pmb->ruser_meshblock_data[I_accreted_mass](0)  += accreted_mass;  // 记录被 BH 吸收的质量
-          pmb->ruser_meshblock_data[I_accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
+          pmb->ruser_meshblock_data[idx::accreted_mass](0)  += accreted_mass;  // 记录被 BH 吸收的质量
+          pmb->ruser_meshblock_data[idx::accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
 
           // 动量
           Vector momentum;
           for (int l = 0; l < 3; ++l) {
             momentum[l] = cons(IM1+l,k,j,i);
-            pmb->ruser_meshblock_data[I_accreted_momentum](l) += momentum[l];  // 记录被 BH 吸收的动量
+            pmb->ruser_meshblock_data[idx::accreted_momentum](l) += momentum[l];  // 记录被 BH 吸收的动量
           }
 
           // 角动量
           Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
           for (int l = 0; l < 3; ++l) {
-            pmb->ruser_meshblock_data[I_accreted_angular_momentum](l) += angular_momentum[l];  // 记录被 BH 吸收的角动量
+            pmb->ruser_meshblock_data[idx::accreted_angular_momentum](l) += angular_momentum[l];  // 记录被 BH 吸收的角动量
           }
           
           // SN Tracer
           if (NSCALARS > 0) {
             Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume;
-            pmb->ruser_meshblock_data[I_accreted_SN_tracer](0)       += SN_tracer_mass;
-            pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0) += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
+            pmb->ruser_meshblock_data[idx::accreted_SN_tracer](0)       += SN_tracer_mass;
+            pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
           }
 
 
@@ -294,74 +297,6 @@ Real MyTimeStep(MeshBlock *pmb) {
   return min_dt;
 }
 
-
-/* -------------------------------------------------------------------------- */
-/*                            自定义 hst Output                                */
-/* -------------------------------------------------------------------------- */
-
-
-// hst_NaN 用于在某些配置下，直接输出 nan。这样在读取时就可以很容易发现相应的 hst 输出是不启用的。
-// 在 EnrollUserHistoryOutput 时，使用三目运算符来使用 hst_NaN，这样应该比在相应的 hst function 里返回 NaN 要更快一点。
-inline Real hst_NaN(MeshBlock *pmb, int iout) {
-  return std::numeric_limits<Real>::quiet_NaN();
-}
-
-// 统计总共有多少个 MeshBlocks
-inline Real hst_num_MeshBlocks(MeshBlock *pmb, int iout) {
-  return 1;  // 每个 MeshBlock 返回 1，最后加起来。
-}
-
-inline Real hst_dt_hyperbolic(MeshBlock *pmb, int iout) {
-  return pmb->pmy_mesh->dt_hyperbolic;
-}
-
-inline Real hst_dt_user(MeshBlock *pmb, int iout) {
-  return pmb->pmy_mesh->dt_user;  
-  // 如果没 EnrollUserTimeStepFunction，这里的 dt_user 会是 Athena++ 内部初始化时设定的 std::numeric_limits<Real>::max()
-}
-
-// 累计吸积的质量
-inline Real hst_accreted_mass(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_mass](0);
-}
-// 输出当前时间步内的 accretion rate
-inline Real hst_accretion_rate(MeshBlock *pmb, int iout) {
-  Real accretion_rate = pmb->ruser_meshblock_data[I_accretion_rate](0);
-  return accretion_rate;
-}
-
-// 累计吸积的 SN tracer 质量
-inline Real hst_accreted_SN_tracer(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_SN_tracer](0);
-}
-// 输出当前时间步内的 accretion rate of SN tracer
-inline Real hst_accretion_rate_SN_tracer(MeshBlock *pmb, int iout) {
-  Real accretion_rate_SN_tracer = pmb->ruser_meshblock_data[I_accretion_rate_SN_tracer](0);
-  return accretion_rate_SN_tracer;
-}
-
-
-// 动量的三个分量
-inline Real hst_accreted_momentum_x(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_momentum](0);
-}
-inline Real hst_accreted_momentum_y(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_momentum](1);
-}
-inline Real hst_accreted_momentum_z(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_momentum](2);
-}
-
-// 角动量的三个分量
-inline Real hst_accreted_angular_momentum_x(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](0);
-}
-inline Real hst_accreted_angular_momentum_y(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](1);
-}
-inline Real hst_accreted_angular_momentum_z(MeshBlock *pmb, int iout) {
-  return pmb->ruser_meshblock_data[I_accreted_angular_momentum](2);
-}
 
 
 
@@ -444,43 +379,38 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollUserTimeStepFunction(MyTimeStep);  // 无论如何都加入自定义步长限制。如果没开 Cooling 之类的，则 MyTimeStep 立即返回一个很大的数，不影响速度
 
 
-  // 自定义的 hst Output
-  enum UserHistoryOutputIndex {
-    I_num_MeshBlocks,
-    I_dt_hyperbolic,
-    I_dt_user,
-    I_accreted_mass,
-    I_accretion_rate,
-    I_accreted_SN_tracer,
-    I_accretion_rate_SN_tracer,
-    I_accreted_momentum_x,
-    I_accreted_momentum_y,
-    I_accreted_momentum_z,
-    I_accreted_angular_momentum_x,
-    I_accreted_angular_momentum_y,
-    I_accreted_angular_momentum_z,
-    // 其他 ...
-    N_UserHistoryOutput // 总个数
-  };
+  // Enroll 自定义的 hst output。目前不方便挪到单独的文件中，因为这里的分支条件依赖于 pgen 的文件级别变量。
+  {  // 防止 namespace 泄露
+    //* 这里不 using namespace hst_index 是因为 dt_user 与 Mesh 的成员变量名字撞了。
+    using namespace hst_funcs;  // 简化名称
 
-  // 如果不 Enroll 某些 hst 函数，那么对应的 user_history_func_[i] 就会是 nullptr，而在 HistoryOutput 中有判空。 //? 会输出 nan 还是 0 还是什么？有待试验
-  //TODO 给这些 hst 加条件，比如 accretion 相关量只有在存在 sink 的时候启用；SN 相关量只有在存在 SN 的时候启用。
-  //? 用 hst_NaN 来给出空输出，还是直接用默认的 nullptr 的输出？
-
-  AllocateUserHistoryOutput(N_UserHistoryOutput);
-  EnrollUserHistoryOutput(I_num_MeshBlocks, hst_num_MeshBlocks, "num_MeshBlocks");
-  EnrollUserHistoryOutput(I_dt_hyperbolic, hst_dt_hyperbolic, "dt_hyperbolic", UserHistoryOperation::min);
-  EnrollUserHistoryOutput(I_dt_user, hst_dt_user, "dt_user", UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
-  EnrollUserHistoryOutput(I_accreted_mass, hst_accreted_mass, "accreted_mass");
-  EnrollUserHistoryOutput(I_accretion_rate, hst_accretion_rate, "accretion_rate");
-  EnrollUserHistoryOutput(I_accreted_SN_tracer, hst_accreted_SN_tracer, "accreted_SN_tracer");
-  EnrollUserHistoryOutput(I_accretion_rate_SN_tracer, hst_accretion_rate_SN_tracer, "accretion_rate_SN_tracer");
-  EnrollUserHistoryOutput(I_accreted_momentum_x, hst_accreted_momentum_x, "accreted_momentum_x");
-  EnrollUserHistoryOutput(I_accreted_momentum_y, hst_accreted_momentum_y, "accreted_momentum_y");
-  EnrollUserHistoryOutput(I_accreted_momentum_z, hst_accreted_momentum_z, "accreted_momentum_z");
-  EnrollUserHistoryOutput(I_accreted_angular_momentum_x, hst_accreted_angular_momentum_x, "accreted_angular_momentum_x");  
-  EnrollUserHistoryOutput(I_accreted_angular_momentum_y, hst_accreted_angular_momentum_y, "accreted_angular_momentum_y");
-  EnrollUserHistoryOutput(I_accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
+    // 如果不 Enroll 某些 hst 函数，那么对应的 user_history_func_[i] 就会是 nullptr，而在 HistoryOutput 中有判空，不会进行计算和跨 MPI 的收集。
+    // 但是最后会写入文件，header 是空字符串。 //? 会输出 nan 还是 0 还是什么？有待试验
+    AllocateUserHistoryOutput(hst_index::N_UserHistoryOutput);
+    EnrollUserHistoryOutput(hst_index::num_MeshBlocks, hst_num_MeshBlocks, "num_MeshBlocks");
+    EnrollUserHistoryOutput(hst_index::dt_hyperbolic,  hst_dt_hyperbolic,  "dt_hyperbolic", UserHistoryOperation::min);
+    EnrollUserHistoryOutput(hst_index::dt_user,        hst_dt_user,        "dt_user",       UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
+    if (R_in > 0.0) {
+      EnrollUserHistoryOutput(hst_index::accreted_mass,               hst_accreted_mass,               "accreted_mass");
+      EnrollUserHistoryOutput(hst_index::accretion_rate,              hst_accretion_rate,              "accretion_rate");
+      EnrollUserHistoryOutput(hst_index::accreted_SN_tracer,          hst_accreted_SN_tracer,          "accreted_SN_tracer");
+      EnrollUserHistoryOutput(hst_index::accretion_rate_SN_tracer,    hst_accretion_rate_SN_tracer,    "accretion_rate_SN_tracer");
+      EnrollUserHistoryOutput(hst_index::accreted_momentum_x,         hst_accreted_momentum_x,         "accreted_momentum_x");
+      EnrollUserHistoryOutput(hst_index::accreted_momentum_y,         hst_accreted_momentum_y,         "accreted_momentum_y");
+      EnrollUserHistoryOutput(hst_index::accreted_momentum_z,         hst_accreted_momentum_z,         "accreted_momentum_z");
+      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_x, hst_accreted_angular_momentum_x, "accreted_angular_momentum_x");  
+      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_y, hst_accreted_angular_momentum_y, "accreted_angular_momentum_y");
+      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
+    }
+    if (supernovae.SN_flag > 0) {
+    }
+    // 把未 enroll 的 hst output 名字设为 "NULL"。否则目前的 athena_read.py 中的 hst 读取无法处理空的 header，各列会错位。
+    for (int n=0; n<nuser_history_output_; n++) {
+      if (user_history_func_[n] == nullptr) {
+        user_history_output_names_[n] = "NULL";
+      }
+    }
+  }
 
   if (Globals::my_rank == 0) {
     std::cout << "pgen 编译于: " << __DATE__ << " " << __TIME__ << '\n'; 
@@ -496,20 +426,29 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 // 调用时机：程序启动时（包括 restart 时）
 // 函数用途：初始化每个 MeshBlock 上的局部变量（包括数组数据）
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
-  // 之前我用来传递 input 参数，后来改成了用 pgen 的全局变量
-  AllocateRealUserMeshBlockDataField(N_RealUserMeshBlockData);
-  // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。这样还能在 restart 时自动储存恢复。
-  ruser_meshblock_data[I_accreted_mass].NewAthenaArray(1);  // 黑洞吸积的总质量
-  ruser_meshblock_data[I_accretion_rate].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
-  ruser_meshblock_data[I_accreted_SN_tracer].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量
-  ruser_meshblock_data[I_accretion_rate_SN_tracer].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
-  ruser_meshblock_data[I_accreted_momentum].NewAthenaArray(3);  // 黑洞吸积的总动量
-  ruser_meshblock_data[I_accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
 
-  // 设定 uov
-  AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
-  //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。
-  SetUserOutputVariableName(I_cooling_rate, "_cooling_rate");
+  // 初始化 ruser_meshblock_data
+  { // 防止 idx 别名泄露
+    namespace idx = RealUserMeshBlockDataIndex;
+    AllocateRealUserMeshBlockDataField(idx::N_RealUserMeshBlockData);
+    if (R_in > 0.0) {  // 只有当存在 sink region 时启用这些数组
+      // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。这样还能在 restart 时自动储存恢复。
+      ruser_meshblock_data[idx::accreted_mass            ].NewAthenaArray(1);  // 黑洞吸积的总质量
+      ruser_meshblock_data[idx::accretion_rate           ].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
+      ruser_meshblock_data[idx::accreted_SN_tracer       ].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量
+      ruser_meshblock_data[idx::accretion_rate_SN_tracer ].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
+      ruser_meshblock_data[idx::accreted_momentum        ].NewAthenaArray(3);  // 黑洞吸积的总动量
+      ruser_meshblock_data[idx::accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
+    }
+  }
+
+  // 设定 UOV
+  {
+    using namespace UOV;
+    AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
+    //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。
+    SetUserOutputVariableName(cooling_rate, "_cooling_rate");
+  }
 
 
   return;
@@ -562,7 +501,8 @@ void Mesh::UserWorkInLoop() {
 }
 
 
-// 调用时机：每个将要输出 output 的时间步的末尾。(但不包括 hst 输出，因为太频繁了) //? 和 Mesh::UserWorkInLoop 谁先？
+// 调用时机：每个将要输出 output 的时间步的末尾。(但不包括 hst 输出，因为太频繁了) 
+//* 生在 UserWorkInLoop 之后，甚至在 pmesh->time 和 pmesh->dt 已经更新后
 // 函数用途：计算用户定义的输出变量
 void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
   // 计算 uov
