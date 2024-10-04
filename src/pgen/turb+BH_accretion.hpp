@@ -33,10 +33,9 @@ Real GM_BH, R_in, R_out, dens_in_BH;
 Real M_BH;
 
 
-
+//FUTURE 这几个「自定义机制」对象/指针，考虑挪到 ckj_code.hpp 中去，从而可以在其他模块、pgen 中引用
 
 Supernovae supernovae;
-
 
 Cooling cooling;  //* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变。如果对象很大，可能会消耗大量的栈空间。
 

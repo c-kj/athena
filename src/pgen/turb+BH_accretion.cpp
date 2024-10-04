@@ -53,26 +53,6 @@
 // 本 pgen 的头文件（以后考虑合并）
 #include "turb+BH_accretion.hpp"
 
-/* -------------------------------------------------------------------------- */
-/*                                 ckj_plugin                                 */
-/* -------------------------------------------------------------------------- */
-
-// 文件级变量。通过 ckj_plugin 从 main.cpp 中获取。
-TaskList *ptlist;
-int current_stage;  // 目前这个变量以文件级变量放在 pgen 中。因为如果放在 ckj_plugin.hpp 中，为了避免违反 ODR 比较麻烦，需要 extern 声明并且在别处定义，或者在里面嵌套一个匿名 namespace。
-int nstages;  // 所选的 time integrator 的 stage 总数，用于判断是否为最后一个 stage。从 ckj_plugin::GetPointers 中获取。
-
-namespace ckj_plugin {
-  void GetPointers(Outputs *pouts, TaskList *ptlist) {
-    ::ptlist = ptlist; // 规避重名，用 :: 来指代全局命名空间。
-    nstages = ptlist->nstages;
-  }
-
-  void UserWorkBeforeStage(Mesh *pmesh, int stage) {
-    current_stage = stage;
-  }
-}
-
 
 /* -------------------------------------------------------------------------- */
 /*                                Source Terms                                */
@@ -99,14 +79,10 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
     SMBH_grav(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
-  if (current_stage == nstages) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
+  if (ckj_plugin::current_stage == ckj_plugin::nstages) { // 若为最后一个 stage，则在这里插入一些操作：比如 SN 的注入、Cooling 的操作等
     SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
-  // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
-  if (R_in > 0.0) {
-    SMBH_sink(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
 }
 
 
@@ -120,7 +96,7 @@ void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
   const Real mesh_time = pmb->pmy_mesh->time;
   const Real mesh_dt = pmb->pmy_mesh->dt;
 
-  // 把 SN 放在 cooling 之后，避免 cooling 时受到 SN 的影响，因为这一步尚未根据 SN 限制 dt。
+  // 把 SN 放在 cooling 之后，避免 cooling 时受到 SN 的影响，因为这一步尚未根据 SN 限制 dt。虽然理论上源项不应该依赖于 cons，但 cooling 可能依赖于 cons 来判断还剩多少能量？
 
   // Cooling，在这里意味着使用当前步开始时的 prim，只走一整步。//? 这可能不一定稳定 or 准确？
   if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::AfterSourceTerm) {
@@ -131,6 +107,13 @@ void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
   if (supernovae.SN_flag > 0 && supernovae.source_term_position == SourceTermPosition::AfterSourceTerm) {
     supernovae.SuperNovaeSourceTerm(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
+
+  // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
+  //* 目前放在 last stage 中，从而保证吸积量记录准确，不受各个 stage 的 gamma_1 系数影响。
+  if (R_in > 0.0) {
+    SMBH_sink(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
 };
 
 
@@ -207,7 +190,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
   namespace idx = RealUserMeshBlockDataIndex;  // 简化名称。反正这里只用得到 RealUserMeshBlockData
 
   // 在第一个 stage 清零吸积率，用于统计当前 cycle 内的吸积率。目前放在 SMBH_sink 源项内，是为了把涉及吸积量的计算都放在一起。
-  if (current_stage == 1) { 
+  if (ckj_plugin::current_stage == 1) { 
     pmb->ruser_meshblock_data[idx::accretion_rate](0) = 0.0;  
     pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) = 0.0;  
   }
