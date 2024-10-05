@@ -449,6 +449,7 @@ int main(int argc, char *argv[]) {
   // For performance, there is no error handler protecting this step (except outputs)
 
   ckj_plugin::GetPointers(pouts, ptlist); // 获取一些拿不到的指针
+  ckj_plugin::GetSourceTermWeightList();  // 计算 source term 的权重
 
   if (Globals::my_rank == 0) {
     std::cout << "\nSetup complete, entering main loop...\n" << std::endl;

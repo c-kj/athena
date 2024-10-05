@@ -236,6 +236,9 @@ class TimeIntegratorTaskList : public TaskList {
   TaskStatus CRTCOpacity(MeshBlock *pmb, int stage);
 
   bool CheckNextMainStage(int stage) const {return stage_wghts[stage%nstages].main_stage;}
+  
+  //HACK for ckj_plugin
+  const IntegratorWeight* GetStageWeight() const {return stage_wghts;}  // 我添加的函数，用于把 private 的 stage_wghts 暴露出来。
 
  private:
   bool ORBITAL_ADVECTION; // flag for orbital advection (true w/ , false w/o)
