@@ -6,6 +6,7 @@
 // 自定义的头文件
 #include "cooling.hpp"
 #include "my_outputs.hpp"
+#include "ckj_plugin.hpp"
 
 
 Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
@@ -195,7 +196,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         //BUG 这里似乎不应该用 prim 来算，而是从 cons 中算出 E_thermal，这样才是 Limiter 所需要的「当前剩下的 E_thermal」。对于 CoolingTimescale 的计算怎么办？
 
 
-        Real dE = 0.0;  // 用于最后返回的 dE （整个 TimeStep 的热能变化量）
+        Real dE = 0.0;  // 用于最后返回的 dE （整个 SourceTerm 的 dt 内，当前 cell 中的热能密度变化量）。//* 注意：E 是能量密度，而非能量！
         Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
         Real t_subcycle = 0.0;  // 从 0 增加到 dt
         Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
@@ -220,10 +221,14 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
 
 
         cons(IEN,k,j,i) += dE;
-
-        pmb->user_out_var(UOV::cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中
+        pmb->user_out_var(UOV::cooling_rate, k,j,i) = -dE/dt;  // 把每个 cell 内的 cooling_rate 储存到 user_out_var 中。
+        //* 由于每个 cycle 内，后面的 stage 这里的赋值会覆盖前面的，所以最后只会保留最后一个 stage 的值。不过既然是 rate，那么用最后一个 stage 的值也基本上是准确的。
         // 这里储存 dE/dt 而非 dE 是因为 dE/dt 才是物理的，不涉及人为的 dt。而且如果放在 InSourceTerm 中，那么会被调用半步。
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
+
+        const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
+        namespace idx = RealUserMeshBlockDataIndex;
+        pmb->ruser_meshblock_data[idx::total_cooling_loss](0) += -dE * cell_volume * ckj_plugin::source_term_weight;  // 历史累计的 cooling loss
       }
     }
   }

@@ -16,14 +16,19 @@ namespace UOV {
 // 名字很长，但这样比较明确。引用时可以临时给个别名，比如 namespace idx = RealUserMeshBlockDataIndex;
 namespace RealUserMeshBlockDataIndex {
   enum RealUserMeshBlockDataIndex {
+    // 源项造成的改变量的历史记录
     // 吸积量
     accreted_mass,
     accretion_rate,
     accreted_SN_tracer,
     accretion_rate_SN_tracer,
+    accreted_energy,
     accreted_momentum,
     accreted_angular_momentum,
-    // 源项造成的改变量
+    // 能量
+    total_cooling_loss,
+    BH_gravity_work,
+    // SN 注入量
     SN_injected_energy,
     SN_injected_mass,
     SN_injected_number,

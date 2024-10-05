@@ -83,6 +83,11 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
     SourceTermAtLastStage(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
+  // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
+  if (R_in > 0.0) {
+    SMBH_sink(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
 }
 
 
@@ -108,12 +113,6 @@ void SourceTermAtLastStage(MeshBlock *pmb, const Real time, const Real dt,
     supernovae.SuperNovaeSourceTerm(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
-  // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
-  //* 目前放在 last stage 中，从而保证吸积量记录准确，不受各个 stage 的 gamma_1 系数影响。
-  if (R_in > 0.0) {
-    SMBH_sink(pmb, mesh_time, mesh_dt, prim, prim_scalar, bcc, cons, cons_scalar);
-  }
-
 };
 
 
@@ -121,15 +120,18 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+  Real BH_gravity_work = 0.0;  // 用于在 SIMD 循环中累计
+
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     Real z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
       Real y = pmb->pcoord->x2v(j);
-#pragma omp simd  // SIMD 矢量化。不确定是否成功。
+#pragma omp simd reduction(+:BH_gravity_work)  // SIMD 矢量化。必须要加 reduction 语句，否则 BH_gravity_work 会被多个线程同时写入，导致结果偏小！
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         Real x = pmb->pcoord->x1v(i);
         Real r = std::sqrt(x*x + y*y + z*z);
         Real r3 = r*r*r;
+        Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
         
         Real rho = prim(IDN,k,j,i); 
         Real vx  = prim(IVX,k,j,i);
@@ -138,7 +140,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
 
         // 只对黑洞外的区域施加引力。在这里对 R_in 以内施加引力没用，接下来会被重设
         //? 这里需要 && r <= R_out 吗？
-        if (r >= R_in ) {
+        if (R_in <= r and r <= R_out) {  // 这里限定为 R_in 和 R_out 之间，因为其他地方会被覆盖，引力做功的计算就不准确了
           cons(IM1,k,j,i) += - GM_BH*x/r3 * rho * dt;
           cons(IM2,k,j,i) += - GM_BH*y/r3 * rho * dt;
           cons(IM3,k,j,i) += - GM_BH*z/r3 * rho * dt;
@@ -146,8 +148,10 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
           // 能量的改变：非全局正压时需要更新能量密度
           if (NON_BAROTROPIC_EOS) {
             // 这里可以稍微优化，快一点
-            cons(IEN,k,j,i) += - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt; // 根据动量的改变，相应地改变动能。内能目前不变。
+            Real dE = - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt;
+            cons(IEN,k,j,i) += dE; // 根据动量的改变，相应地改变动能。内能目前不变。
             //? 这里是否需要考虑把平方项补偿上去？有待测试。
+            BH_gravity_work += dE * cell_volume * ckj_plugin::source_term_weight;  // 记录引力做的功
           }
         }
 
@@ -167,6 +171,8 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
       }
     }
   }
+
+  pmb->ruser_meshblock_data[RealUserMeshBlockDataIndex::BH_gravity_work](0) = BH_gravity_work;  // 赋值到 ruser_meshblock_data 中，以便输出到 hst
   
   // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
   //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
@@ -213,18 +219,23 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
           //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
           const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。其他 pgen 里用的 vol 长度都是 pmb->ncells1，但这个是包含了 2*NGHOST 的，感觉 pmb->blocksize->nx1 就够了，不知道为什么。
+          const Real source_weight = ckj_plugin::source_term_weight;
           const Real dens_new = std::min(dens_in_BH, dens);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
           //? 这里似乎不需要 min，因为 sink 内的流体密度（= 上一个 stage 剩下的 sink 密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
-          const Real accreted_mass = (dens - dens_new) * cell_volume;  // 计算当前 cell 内减去的质量
 
           // 质量
-          pmb->ruser_meshblock_data[idx::accreted_mass](0)  += accreted_mass;  // 记录被 BH 吸收的质量
+          const Real accreted_mass = (dens - dens_new) * cell_volume * source_weight;       // 计算当前 cell 内减去的质量
+          pmb->ruser_meshblock_data[idx::accreted_mass ](0) += accreted_mass;            // 记录被 BH 吸收的质量
           pmb->ruser_meshblock_data[idx::accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
+
+          // 能量
+          const Real accreted_energy = cons(IEN,k,j,i) * cell_volume * source_weight;  // 计算当前 cell 内的能量（包括动能和内能）
+          pmb->ruser_meshblock_data[idx::accreted_energy](0) += accreted_energy;  // 记录被 BH 吸收的能量
 
           // 动量
           Vector momentum;
           for (int l = 0; l < 3; ++l) {
-            momentum[l] = cons(IM1+l,k,j,i);
+            momentum[l] = cons(IM1+l,k,j,i) * cell_volume * source_weight;
             pmb->ruser_meshblock_data[idx::accreted_momentum](l) += momentum[l];  // 记录被 BH 吸收的动量
           }
 
@@ -236,7 +247,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           
           // SN Tracer
           if (NSCALARS > 0) {
-            Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume;
+            Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume * source_weight;
             pmb->ruser_meshblock_data[idx::accreted_SN_tracer](0)       += SN_tracer_mass;
             pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
           }
@@ -378,12 +389,19 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       EnrollUserHistoryOutput(hst_index::accretion_rate,              hst_accretion_rate,              "accretion_rate");
       EnrollUserHistoryOutput(hst_index::accreted_SN_tracer,          hst_accreted_SN_tracer,          "accreted_SN_tracer");
       EnrollUserHistoryOutput(hst_index::accretion_rate_SN_tracer,    hst_accretion_rate_SN_tracer,    "accretion_rate_SN_tracer");
+      EnrollUserHistoryOutput(hst_index::accreted_energy,             hst_accreted_energy,             "accreted_energy");
       EnrollUserHistoryOutput(hst_index::accreted_momentum_x,         hst_accreted_momentum_x,         "accreted_momentum_x");
       EnrollUserHistoryOutput(hst_index::accreted_momentum_y,         hst_accreted_momentum_y,         "accreted_momentum_y");
       EnrollUserHistoryOutput(hst_index::accreted_momentum_z,         hst_accreted_momentum_z,         "accreted_momentum_z");
       EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_x, hst_accreted_angular_momentum_x, "accreted_angular_momentum_x");  
       EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_y, hst_accreted_angular_momentum_y, "accreted_angular_momentum_y");
       EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
+    }
+    if (cooling.cooling_flag) {
+      EnrollUserHistoryOutput(hst_index::total_cooling_loss, hst_total_cooling_loss, "total_cooling_loss");
+    }
+    if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
+      EnrollUserHistoryOutput(hst_index::BH_gravity_work, hst_BH_gravity_work, "BH_gravity_work");
     }
     if (supernovae.SN_flag > 0) {
       EnrollUserHistoryOutput(hst_index::SN_injected_energy, hst_SN_injected_energy, "SN_injected_energy");
@@ -423,8 +441,15 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
       ruser_meshblock_data[idx::accretion_rate           ].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
       ruser_meshblock_data[idx::accreted_SN_tracer       ].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量
       ruser_meshblock_data[idx::accretion_rate_SN_tracer ].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
+      ruser_meshblock_data[idx::accreted_energy          ].NewAthenaArray(1);  // 黑洞吸积的总能量
       ruser_meshblock_data[idx::accreted_momentum        ].NewAthenaArray(3);  // 黑洞吸积的总动量
       ruser_meshblock_data[idx::accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
+    }
+    if (cooling.cooling_flag) {
+      ruser_meshblock_data[idx::total_cooling_loss       ].NewAthenaArray(1);
+    }
+    if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
+      ruser_meshblock_data[idx::BH_gravity_work].NewAthenaArray(1);  // SMBH 引力对流体做的功
     }
     if (supernovae.SN_flag > 0) {
       ruser_meshblock_data[idx::SN_injected_energy].NewAthenaArray(1);  // SN 注入的总能量
@@ -437,8 +462,11 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   {
     using namespace UOV;
     AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
+    //TODO 把 enum 改为使用 vector 或 map 之类的，从而根据开启什么功能来决定总共 UOV 的数目，减小输出体积。但是，从代称到编号的 map 需要在其他文件中也可见！
     //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。
-    SetUserOutputVariableName(cooling_rate, "_cooling_rate");
+    if (cooling.cooling_flag) {
+      SetUserOutputVariableName(cooling_rate, "_cooling_rate");
+    }
   }
 
 

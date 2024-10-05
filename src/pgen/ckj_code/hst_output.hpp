@@ -22,18 +22,24 @@ namespace hst_index {
     num_MeshBlocks,
     dt_hyperbolic,
     dt_user,
+    // 源项造成的改变量
     // 吸积量
     accreted_mass,
     accretion_rate,
     accreted_SN_tracer,
     accretion_rate_SN_tracer,
+    accreted_energy,
     accreted_momentum_x,
     accreted_momentum_y,
     accreted_momentum_z,
     accreted_angular_momentum_x,
     accreted_angular_momentum_y,
     accreted_angular_momentum_z,
-    // 源项造成的改变量
+    // 能量
+    total_cooling_loss,
+    BH_gravity_work,
+    //TODO BH_potential_energy,  等把 BH 的相关信息抽出来作为全局变量时再写
+    // SN 注入量
     SN_injected_energy,
     SN_injected_mass,
     SN_injected_number,
@@ -93,6 +99,10 @@ Real hst_accretion_rate_SN_tracer(MeshBlock *pmb, int iout) {
   return accretion_rate_SN_tracer;
 }
 
+// 累计吸积的能量
+Real hst_accreted_energy(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::accreted_energy](0);
+}
 
 // 动量的三个分量
 Real hst_accreted_momentum_x(MeshBlock *pmb, int iout) {
@@ -117,6 +127,32 @@ Real hst_accreted_angular_momentum_z(MeshBlock *pmb, int iout) {
 }
 
 // 源项的改变量
+Real hst_total_cooling_loss(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::total_cooling_loss](0);
+}
+
+Real hst_BH_gravity_work(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::BH_gravity_work](0);
+}
+
+// Real hst_BH_potential_energy(MeshBlock *pmb, int iout) {
+//   for (int k = pmb->ks; k <= pmb->ke; ++k) {
+//     Real z = pmb->pcoord->x3v(k);
+//     for (int j = pmb->js; j <= pmb->je; ++j) {
+//       Real y = pmb->pcoord->x2v(j);
+// #pragma omp simd  // SIMD 矢量化。不确定是否成功。
+//       for (int i = pmb->is; i <= pmb->ie; ++i) {
+//         Real x = pmb->pcoord->x1v(i);
+//         Real r = std::sqrt(x*x + y*y + z*z);
+//         Real r3 = r*r*r;
+//         Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
+
+//         Real dens = pmb->phydro->u(IDN,k,j,i); // 用 dens 称呼 cons 守恒密度，与 prim 密度区分。
+
+//       }
+//     }
+//   }
+// }
 
 Real hst_SN_injected_energy(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[idx::SN_injected_energy](0);
