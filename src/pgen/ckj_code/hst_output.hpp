@@ -6,7 +6,14 @@
 
 #include "my_outputs.hpp"
 
-
+//* 添加新 hst output 的步骤
+// 1. 在 hst_index::UserHistoryOutputIndex 中添加新的 index
+// 2. 在 hst_funcs::hst_XXX 中添加新的函数
+// 3. 在 MeshBlock::UserWorkBeforeOutput 中 EnrollUserHistoryOutput
+// 如果需要累积储存，还需要配合 MeshBlock 上的数据：
+// 1. 在RealUserMeshBlockDataIndex 中添加新的 index
+// 2. MeshBlock::InitUserMeshBlockData 中初始化 ruser_meshblock_data
+// 3. 在相应的源项中修改 ruser_meshblock_data 的值
 
 
 // 自定义的 hst Output 的 index。用于 EnrollUserHistoryOutput 时；可能用于 hst_ 系列函数中，与 iout 参数做判断。
@@ -26,6 +33,10 @@ namespace hst_index {
     accreted_angular_momentum_x,
     accreted_angular_momentum_y,
     accreted_angular_momentum_z,
+    // 源项造成的改变量
+    SN_injected_energy,
+    SN_injected_mass,
+    SN_injected_number,
     // 其他 ...
     N_UserHistoryOutput // 总个数
   };
@@ -105,6 +116,17 @@ Real hst_accreted_angular_momentum_z(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[idx::accreted_angular_momentum](2);
 }
 
+// 源项的改变量
+
+Real hst_SN_injected_energy(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::SN_injected_energy](0);
+}
+Real hst_SN_injected_mass(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::SN_injected_mass](0);
+}
+Real hst_SN_injected_number(MeshBlock *pmb, int iout) {
+  return pmb->ruser_meshblock_data[idx::SN_injected_number](0);
+}
 
 
 } // namespace hst_funcs

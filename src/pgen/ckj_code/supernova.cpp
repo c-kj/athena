@@ -11,6 +11,7 @@
 #include "supernova.hpp"
 #include "utils.hpp"
 #include "initial_condition.hpp"  // rho_from_n_cgs 用于从初始条件中的 n_cgs 换算为 rho，用于计算 SN Rate
+#include "my_outputs.hpp"
 
 
 /* -------------------------------------------------------------------------- */
@@ -288,27 +289,36 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
   GetSupernovaeToInject(mesh_time, mesh_dt); // 寻找应在当前步中爆炸的 SN 时，使用 mesh_time 和 mesh_dt，而非 SourceTerm 传入的 time 和 dt
   if ( supernova_to_inject.empty() ) return; // 如果当前时间步没有超新星爆炸，直接跳出
   
+  Real injected_energy = 0.0;
+  Real injected_mass   = 0.0;
+
   // 把 SN 的遍历放在外层，方便最内层 SIMD 矢量化，内存访问也更连续。
   for (SupernovaEvent* SN : supernova_to_inject) {
     for (int k = pmb->ks; k <= pmb->ke; ++k) {
       Real z = pmb->pcoord->x3v(k);
       for (int j = pmb->js; j <= pmb->je; ++j) {
         Real y = pmb->pcoord->x2v(j);
-  #pragma omp simd // SIMD 矢量化。这里的循环体较为简单，应该可以成功？但不是性能热点，没多大提升。
+  #pragma omp simd reduction(+:injected_energy, injected_mass)  // SIMD 矢量化。这里的循环体较为简单，应该可以成功？但不是性能热点，没多大提升。
         for (int i = pmb->is; i <= pmb->ie; ++i) {
           Real x = pmb->pcoord->x1v(i);
+          Real cell_volume = pmb->pcoord->GetCellVolume(i,j,k);
 
           // 超新星爆炸的能量和质量注入。
           if ( SN->energy_region->contains({x,y,z}) ) {
-            cons(IEN,k,j,i) += SN->energy_density * inject_ratio;
+            Real dE = SN->energy_density * inject_ratio;  // E 是能量密度而非能量！
+            cons(IEN,k,j,i) += dE;
+            injected_energy += dE * cell_volume;
           }
           if ( SN->mass_region->contains({x,y,z}) ) {
             Real drho = SN->mass_density * inject_ratio;
+            Real dE = 0.5 * drho * SQR(SN->velocity_magnitude);  // 注入的质量密度对应的动能密度
             cons(IDN,k,j,i) += drho;
             cons(IM1,k,j,i) += drho * SN->velocity[0];
             cons(IM2,k,j,i) += drho * SN->velocity[1];
             cons(IM3,k,j,i) += drho * SN->velocity[2];
-            cons(IEN,k,j,i) += 0.5 * drho * SQR(SN->velocity_magnitude);
+            cons(IEN,k,j,i) += dE;
+            injected_mass   += drho * cell_volume;
+            injected_energy += dE   * cell_volume;
             // 注入 Passive Scalar，正比于质量密度
             if (NSCALARS > 0) {
               cons_scalar(PassiveScalarIndex::SN,k,j,i) += drho;
@@ -326,6 +336,13 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
       }
     }
   }
+  namespace idx = RealUserMeshBlockDataIndex;
+  // 记录 SN 注入的能量、质量、个数
+  //* 只有当 SN 的 SourceTerm 在 AfterSourceTerm，也即最后一个 stage 中调用时，以下记录才是准确的。否则由于 integrator 的 多个 stage，要偏大一些。
+  pmb->ruser_meshblock_data[idx::SN_injected_energy](0) += injected_energy;
+  pmb->ruser_meshblock_data[idx::SN_injected_mass  ](0) += injected_mass;
+  pmb->ruser_meshblock_data[idx::SN_injected_number](0) += supernova_to_inject.size(); // 在每个 MeshBlock 上都记录 SN 的个数，各个 MeshBlock 都一样，在 hst 函数中用 min 汇总。
+
   return;
 }
 

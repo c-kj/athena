@@ -23,6 +23,10 @@ namespace RealUserMeshBlockDataIndex {
     accretion_rate_SN_tracer,
     accreted_momentum,
     accreted_angular_momentum,
+    // 源项造成的改变量
+    SN_injected_energy,
+    SN_injected_mass,
+    SN_injected_number,
     // 其他 ...
     N_RealUserMeshBlockData  // DataField 的个数，用于 AllocateUserOutputVariables。必须放在 enum 的最后
   };

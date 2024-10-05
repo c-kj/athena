@@ -386,6 +386,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
     }
     if (supernovae.SN_flag > 0) {
+      EnrollUserHistoryOutput(hst_index::SN_injected_energy, hst_SN_injected_energy, "SN_injected_energy");
+      EnrollUserHistoryOutput(hst_index::SN_injected_mass,   hst_SN_injected_mass,   "SN_injected_mass");
+      EnrollUserHistoryOutput(hst_index::SN_injected_number, hst_SN_injected_number, "SN_injected_number", UserHistoryOperation::min);  // 每个 MeshBlock 上都记录了同样的数字，所以取 min 就行
     }
     // 把未 enroll 的 hst output 名字设为 "NULL"。否则目前的 athena_read.py 中的 hst 读取无法处理空的 header，各列会错位。
     for (int n=0; n<nuser_history_output_; n++) {
@@ -422,6 +425,11 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
       ruser_meshblock_data[idx::accretion_rate_SN_tracer ].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
       ruser_meshblock_data[idx::accreted_momentum        ].NewAthenaArray(3);  // 黑洞吸积的总动量
       ruser_meshblock_data[idx::accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
+    }
+    if (supernovae.SN_flag > 0) {
+      ruser_meshblock_data[idx::SN_injected_energy].NewAthenaArray(1);  // SN 注入的总能量
+      ruser_meshblock_data[idx::SN_injected_mass  ].NewAthenaArray(1);  // SN 注入的总质量
+      ruser_meshblock_data[idx::SN_injected_number].NewAthenaArray(1);  // SN 注入的总个数
     }
   }
 
