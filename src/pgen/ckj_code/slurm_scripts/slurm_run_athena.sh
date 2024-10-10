@@ -4,12 +4,16 @@
 #SBATCH --qos=low                    # 质量服务等级
 #SBATCH --nodes=1                    # 分配的节点数
 #SBATCH --ntasks-per-node=64          # 每个节点的任务数
-#SBATCH --ntasks=64                   # 总任务数
+#SBATCH --ntasks=64                  # 总任务数
 
-
-# 以下不启用，用多个 # 号注释掉
+# 临时启用的选项
 ##SBATCH --partition=C064M1024G        # 设置分区
 
+
+# 以下不启用，留作参考，用多个 # 号注释掉
+##SBATCH --partition=C064M1024G        # 设置分区
+##SBATCH --nodelist=node1,node2,node3  # 指定节点
+##SBATCH --exclude=node4,node5         # 排除节点
 
 
 # 输出一些信息
@@ -40,6 +44,9 @@ echo  # 输出一个空行
 
 # 重置 SECONDS 变量，用于计时
 SECONDS=0
+
+# 获取脚本开始时间
+start_time=$(date +%s)
 
 # 导入MPI运行环境
 module purge
@@ -77,42 +84,42 @@ mv mesh_structure.dat info/                                # 保存网格结构�
 
 module load vtune
 
-MPI_CMD="mpirun -n \"$SLURM_NTASKS\" -machinefile slurm.hosts"
+MPI_CMD="mpirun -n \"$SLURM_NTASKS\" -machinefile slurm.hosts"  #FUTURE 可以尝试用 srun。之前的尝试，似乎不能跨节点？
 
 # VTune 的命令。
 # 不过注意：对于长时间的模拟，加上 vtune 可能会在结束时 MPI_Finalize 时报错 Segmentation fault，暂时不知道怎么解决。
 VTUNE_CMD=""
-# VTUNE_CMD="vtune -collect hotspots -r vtune_result/athena -trace-mpi -data-limit=200 -target-duration-type=short"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
+# VTUNE_CMD="-gtool \"vtune -collect hotspots -r vtune_result/Athena++.$SLURM_JOB_ID -trace-mpi -data-limit=200 -target-duration-type=long : 0-1 -- \" "   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
 
 ATHENA_CMD="athena -d output -i \"$athinput_file\""
 # ATHENA_CMD="$ATHENA_CMD -r \"Bondi.00001.rst\""   # 从某个 rst 文件开始继续模拟
 
-# 执行MPI并行计算程序
-echo "[Running Athena++]: "
-# mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinput_file"
-# mpirun -n "$SLURM_NTASKS" -machinefile slurm.hosts athena -d output -i "$athinput_file" -r "Bondi.00001.rst"
-# srun athena -d output -i test_cooling.athinput #FIXME 不对，这个不能跨节点？
 
 # 组装命令并执行
 RUN_COMMAND="$MPI_CMD $VTUNE_CMD $ATHENA_CMD"
+echo "[Running Athena++]: "
+echo "开始运行 Athena++ 的时间: $SECONDS 秒"
 echo "[Running command]: $RUN_COMMAND"
 eval "$RUN_COMMAND"
 
+echo "Athena++ 运行完毕"
+echo "当前时间: $(date)"
+echo "当前脚本耗时: $SECONDS 秒"
 
 # 运行完之后，直接做后处理
 
 VTUNE_CMD=""
-# VTUNE_CMD="vtune -collect hotspots -knob sampling-mode=sw -r vtune_result/post_processing -trace-mpi"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
+# VTUNE_CMD="vtune -collect hotspots -knob sampling-mode=sw -r vtune_result/post_processing.$SLURM_JOB_ID -trace-mpi"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
 
 # PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/single_SN.py"
 PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/Bondi+random_SN.py"
 PYTHON_CMD="python \"$PYTHON_SCRIPT\""
 
 # 组装命令并执行
-# echo "[Running post-processing script]: $PYTHON_SCRIPT"
-# Post_Processing_COMMAND="$MPI_CMD $VTUNE_CMD $PYTHON_CMD"
-# echo "[Running command]: $Post_Processing_COMMAND"
-# eval "$Post_Processing_COMMAND"
+echo "[Running post-processing script]: $PYTHON_SCRIPT"
+Post_Processing_COMMAND="$MPI_CMD $VTUNE_CMD $PYTHON_CMD"
+echo "[Running command]: $Post_Processing_COMMAND"
+eval "$Post_Processing_COMMAND"
 
 # # srun --jobid=1948647 -N 24 -n 256  athena -d output -i Bondi+SAMR.athinput -r output/Bondi.00000.rst
 

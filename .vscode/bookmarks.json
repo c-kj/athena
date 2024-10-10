@@ -4,6 +4,11 @@
 			"path": "src/outputs/outputs.cpp",
 			"bookmarks": [
 				{
+					"line": 605,
+					"column": 31,
+					"label": "Passive Scalar 的 Output 的命名：r0/s0..."
+				},
+				{
 					"line": 1260,
 					"column": 25,
 					"label": "uov 的输出机制：可以单独指定输出哪个"
@@ -24,6 +29,11 @@
 					"label": "rk2 的 stage_weights: 普通情况下的 beta"
 				},
 				{
+					"line": 1796,
+					"column": 43,
+					"label": "IntegrateHydro 做寄存器的加权平均"
+				},
+				{
 					"line": 1901,
 					"column": 46,
 					"label": "计算传入 SourceTerm 的 t_start_stage 和 dt"
@@ -39,7 +49,7 @@
 			"path": "src/main.cpp",
 			"bookmarks": [
 				{
-					"line": 520,
+					"line": 521,
 					"column": 14,
 					"label": "main loop 中执行 task list 的位置"
 				}
@@ -49,7 +59,7 @@
 			"path": "src/task_list/task_list.cpp",
 			"bookmarks": [
 				{
-					"line": 40,
+					"line": 39,
 					"column": 0,
 					"label": "实际调用 TaskFunc"
 				}

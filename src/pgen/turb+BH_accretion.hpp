@@ -29,8 +29,8 @@
 // 声明自定义的全局变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
 
-Real GM_BH, R_in, R_out, dens_in_BH;
-Real M_BH;
+Real M_BH, GM_BH, R_in, R_out, rho_sink;
+
 
 
 //FUTURE 这几个「自定义机制」对象/指针，考虑挪到 ckj_code.hpp 中去，从而可以在其他模块、pgen 中引用

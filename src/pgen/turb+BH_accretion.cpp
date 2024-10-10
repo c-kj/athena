@@ -220,11 +220,12 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
           const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。其他 pgen 里用的 vol 长度都是 pmb->ncells1，但这个是包含了 2*NGHOST 的，感觉 pmb->blocksize->nx1 就够了，不知道为什么。
           const Real source_weight = ckj_plugin::source_term_weight;
-          const Real dens_new = std::min(dens_in_BH, dens);  // 使用 min，如果密度低于设定值，则仍保持其密度。但按说不会发生。
-          //? 这里似乎不需要 min，因为 sink 内的流体密度（= 上一个 stage 剩下的 sink 密度 + 新进来的流体的贡献）总是高于我所设定的 sink 密度。但暂时先保留。如果观察到 sink 内密度降得比设定值还低，也许有问题。
+          const Real dens_new = std::min(rho_sink, dens);  // 使用 min，如果密度低于 rho_sink，则仍保持其密度，而非抬升到 rho_sink。
+          //* 考虑到有强风（比如 SN shock）吹过时，sink 周围的径向速度可能是正的。尽管 sink 内速度为 0，但由于边界值重建，可能产生向外的 flux，导致 sink 内密度减小！
+          // 不过，由于 rho_sink 很低，所以即便有强风，也不会向外漏出多少质量。而且一旦吸积，dens 比 rho_sink 低的部分就会很快被填平。
 
           // 质量
-          const Real accreted_mass = (dens - dens_new) * cell_volume * source_weight;       // 计算当前 cell 内减去的质量
+          const Real accreted_mass = (dens - dens_new) * cell_volume * source_weight;       // 计算当前 cell 内减去的质量。根据前面的 min，目前这里是非负的
           pmb->ruser_meshblock_data[idx::accreted_mass ](0) += accreted_mass;            // 记录被 BH 吸收的质量
           pmb->ruser_meshblock_data[idx::accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
 
@@ -263,7 +264,11 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
             cons(IEN,k,j,i) = 0.0 + 0.0;  // 把内能（压强）清零（压强会由于 floor 而有一个小值）。动能也是 0.
           }
           if (NSCALARS > 0) {
-            cons_scalar(PassiveScalarIndex::SN,k,j,i) = 0.0;  // 清空 sink 内的 SN Tracer
+            // 清空所有的 passive scalar，否则会从 sink 中漏出来。推测是由于边界值重建导致 flux 不完全为 0
+            // 目前没有针对某些单独的 passive scalar 处理，以后可能添加。
+            for (int n=0; n<NSCALARS; ++n) {
+              cons_scalar(n,k,j,i) = 0.0;
+            }
           }
         }
       }
@@ -330,7 +335,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   R_in = pin->GetOrAddReal("problem","R_in", 0.0);
   R_out = pin->GetOrAddReal("problem","R_out", std::numeric_limits<Real>::max());
-  dens_in_BH = pin->GetReal("problem","rho_in_BH");  //TODO 把 rho_in_BH 改名为 n_in_BH，设定默认值，并且在默认模板中不设定值。
+
+  // 读取 BH sink region 的参数，设定 sink 内的密度
+  Real T_sink = pin->GetOrAddReal("problem","T_sink", 1.0);
+  Real float_min = std::numeric_limits<float>::min();
+  Real pressure_floor = pin->GetOrAddReal("hydro", "pfloor", std::sqrt(1024*float_min));
+  Real mu = Abundance::mu;
+  rho_sink = mu * pressure_floor * punit->hydrogen_mass_code / (punit->k_boltzmann_code * T_sink);
+
 
   // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。

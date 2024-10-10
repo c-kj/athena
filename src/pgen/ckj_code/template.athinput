@@ -119,7 +119,7 @@ turb_flag  = 0         # 1 for decaying, 2 (impulsive) or 3 (continuous) for dri
 M_BH  = 0              # 中心黑洞的质量，Unit: Msun
 R_in  = 0              # CHANGEME: Sink radius 需要根据最小网格的大小来调整
 R_out = inf              
-rho_in_BH = 1e-4
+T_sink = 1.0           # Sink 中的温度，用于设定 rho_sink, Unit: K
 
 
 <debug>
