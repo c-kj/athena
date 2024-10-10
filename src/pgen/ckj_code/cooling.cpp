@@ -196,7 +196,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         //BUG 这里似乎不应该用 prim 来算，而是从 cons 中算出 E_thermal，这样才是 Limiter 所需要的「当前剩下的 E_thermal」。对于 CoolingTimescale 的计算怎么办？
 
 
-        Real dE = 0.0;  // 用于最后返回的 dE （整个 SourceTerm 的 dt 内，当前 cell 中的热能密度变化量）。//* 注意：E 是能量密度，而非能量！
+        Real dE = 0.0;  // 用于最后返回的 dE （整个 SourceTerm 的 dt 内，当前 cell 中的热能密度变化量）。//* 注意：E 是能量密度，而非能量！而且 dE < 0 代表 cooling ！
         Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
         Real t_subcycle = 0.0;  // 从 0 增加到 dt
         Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
@@ -212,11 +212,15 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
 
         if (limiter_on) {
           // dE = - std::min(std::abs(dE), E_thermal * 0.1);  //TEMP 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
+          
           // 限制最低温度
           Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
-          //TODO 仔细思考这里的 Limiter
-          dE = - std::min(std::abs(dE),  (E_thermal-E_thermal_floor));  // 这里算得的 dE 目前不一定是 < 0 的，因为如果低于 floor 反而会加热 
-          //? 注意，可能会和黑洞内的 floor 冲突，导致黑洞内的温度被抬上来。
+          // 避免 cooling 到 floor 以下，如果本来就在 floor 以下则不管（膨胀冷却、高马赫数伪冷却）
+          Real E_thermal_cons = use_prim_in_cooling ? (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho) : E_thermal; // 如果前面已经用了 cons 来计算 E_thermal，就不用再算一遍了
+          Real E_thermal_minus_floor = E_thermal_cons - E_thermal_floor;    // 当前 E_thermal 与 floor 的差值。不论前面的计算用 prim 还是 cons，这里都用 cons，因为这才是要被改变的量。
+          if (E_thermal_minus_floor > 0 and dE < - E_thermal_minus_floor) { // 如果 E_thermal 高于 floor 且 cooling 会把 E_thermal 降到 floor 以下
+            dE = - E_thermal_minus_floor;                                   // 则把 dE 设为 - E_thermal_minus_floor，使得 E_thermal 降到 floor 处
+          }
         }
 
 
@@ -240,6 +244,8 @@ std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_mo
 {
   if (cooling_model == "Draine_2011") {
     return std::unique_ptr<CoolingModel>(new Draine_2011());
+  } else if (cooling_model == "Draine_2011_cutoff") {
+    return std::unique_ptr<CoolingModel>(new Draine_2011_cutoff());
   } else if (cooling_model == "other_model") {
     return std::unique_ptr<CoolingModel>(new OtherModel());
   }
@@ -254,6 +260,16 @@ std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_mo
 Real Draine_2011::CoolingCurve(Real T_cgs) const {
   if (/*  1e5 < T_cgs &&  */ T_cgs <= std::pow(10.0, 7.3) ) {
     return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(-1.18348e5/T_cgs); //TEMP 指数截断，具体的值有待调整
+  } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
+    return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
+  }
+  return 0.0;  // 默认返回值
+}
+
+
+Real Draine_2011_cutoff::CoolingCurve(Real T_cgs) const {
+  if (T_cgs <= std::pow(10.0, 7.3) ) {
+    return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(- std::pow(4.5e4/T_cgs, 1.2)); // 这里指数截断的系数值是我自己手动拟合的。主要用于近似 Draine 2011 在 1e4 附近的截断
   } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
     return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
   }

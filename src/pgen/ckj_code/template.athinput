@@ -174,7 +174,7 @@ M_BH =                                       # 用于在 M_BH 未设定 or 为 0
 
 
 <cooling>
-cooling_model        = Draine_2011           # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, #TODO
+cooling_model        = Draine_2011           # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, Draine_2011_cutoff, #TODO
 source_term_position = InSourceTerm          # InSourceTerm, AfterSourceTerm, UserWorkInLoop
 use_prim_in_cooling  = true                  # true: use prim
 
