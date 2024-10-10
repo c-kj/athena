@@ -38,7 +38,6 @@ struct SupernovaEvent {
   const Real time;
   const Point position;
   const Vector velocity;
-  const Real velocity_magnitude;
 
   // 以下成员变量暂时不声明为 const，因为处理不同的 region 时可能会抛出异常，暂时不放在初始化列表中。
 
@@ -95,7 +94,8 @@ struct Supernovae {
 
   void InitSupernovaParameters(ParameterInput *pin);
   void GatherSupernovaEvents();
-  void PrintInfo() const;
+  void PrintInfo() const; //TEMP 这里暂时废弃，改为输出到 info/ 下面的 csv 文件
+  void WriteInfoCSV(const std::string &filename) const;
 
   // 找到当前时间步内需要注入的超新星，放入 supernova_to_inject 列表
   void GetSupernovaeToInject(const Real time, const Real dt);  

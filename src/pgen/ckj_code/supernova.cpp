@@ -1,5 +1,7 @@
 
 #include <sstream>  // std::stringstream, std::getline
+#include <fstream>  
+#include <iomanip>  // std::setprecision
 #include <stdexcept>  // std::invalid_argument
 #include <algorithm>  // std::sort
 #include <random>  // 生成随机数
@@ -21,8 +23,7 @@
 
 // 构造函数
 SupernovaEvent::SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vector v): 
-  paras(paras), time(t), position(x), velocity(v),
-  velocity_magnitude(std::sqrt(SQR(v[0]) + SQR(v[1]) + SQR(v[2]))) 
+  paras(paras), time(t), position(x), velocity(v)
 {
   auto region_name = paras->region_name;
   if (region_name == "ball") {
@@ -47,7 +48,7 @@ SupernovaEvent::SupernovaEvent(SupernovaParameters *paras, Real t, Point x, Vect
 
 std::string SupernovaEvent::Info() const {
   std::ostringstream oss;
-  oss << "time = " << time << ", position = " << position << ", velocity = " << velocity << ", |v| = " << velocity_magnitude ;
+  oss << "time = " << time << ", position = {" << position << "}, velocity = {" << velocity << "}";
   return oss.str();
 }
 
@@ -205,7 +206,12 @@ Supernovae::Supernovae(Mesh *pmy_mesh, ParameterInput *pin) :
   
   InitSupernovaParameters(pin);
   GatherSupernovaEvents();
-  if (Globals::my_rank == 0) { PrintInfo(); }
+  // if (Globals::my_rank == 0) { PrintInfo(); }
+  if (Globals::my_rank == 0) { 
+    std::cout << "SupernovaEvent Info:\n";
+    std::cout << "Total number: " << supernova_list.size() << "\n";
+    WriteInfoCSV("info/Supernovae.csv");
+  }
 }
 
 
@@ -246,6 +252,30 @@ void Supernovae::PrintInfo() const {
   << "Total: " << supernova_list.size() << "\n";
   for (const auto& SN : supernova_list) {
     std::cout << SN->Info() << "\n";
+  }
+}
+
+
+//TODO 可以考虑改进格式，从而在读取时完全不丢失精度
+void Supernovae::WriteInfoCSV(const std::string &filename) const {
+  ensure_parent_directory_exists(filename);
+  std::ofstream file{filename};
+
+  // 一些总体信息？
+
+  // 所有 SupernovaEvent 的信息
+  file << "SupernovaEvent Info:\n";
+  file << "Total number: " << supernova_list.size() << "\n";
+  // 写入 header
+  file << "=========================================================\n";
+  file << "t, x, y, z, v_x, v_y, v_z, energy_density, number_density\n";
+
+  // 设置浮点数输出格式，确保不丢失精度
+  file << std::fixed << std::setprecision(std::numeric_limits<Real>::max_digits10);
+
+  // 写入每个 SupernovaEvent 的信息
+  for (const auto& SN : supernova_list) {
+    file << SN->time << ", " << SN->position << ", " << SN->velocity << ", " << SN->energy_density << ", " << SN->mass_density << "\n";
   }
 }
 
@@ -311,7 +341,7 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
           }
           if ( SN->mass_region->contains({x,y,z}) ) {
             Real drho = SN->mass_density * inject_ratio;
-            Real dE = 0.5 * drho * SQR(SN->velocity_magnitude);  // 注入的质量密度对应的动能密度
+            Real dE = 0.5 * drho * (SQR(SN->velocity[0]) + SQR(SN->velocity[1]) + SQR(SN->velocity[2]));  // 注入的质量密度对应的动能密度
             cons(IDN,k,j,i) += drho;
             cons(IM1,k,j,i) += drho * SN->velocity[0];
             cons(IM2,k,j,i) += drho * SN->velocity[1];
