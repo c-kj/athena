@@ -129,7 +129,7 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
       Real t_start = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_start", 0.0); 
       Real tlim = pin->GetReal("time", "tlim"); 
       Real t_end = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_end", tlim);
-      Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF"); 
+      Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF") * pSNe->punit->million_yr_code;  // 从 input file 中读取 tau_SF，单位是 Myr，转换为 code unit
       //TODO 这里目前从 pin 读取的参数，并重新进行换算。以后考虑改为从 initial_condition 指针中读取。但这需要在顶层把指针收集起来。
       Real n_init_cgs = pin->GetReal("initial_condition", "n_init_cgs");
       Real rho_init_code = rho_from_n_cgs(Abundance::mu, n_init_cgs) / pSNe->punit->code_density_cgs;

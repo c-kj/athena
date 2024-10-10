@@ -19,6 +19,8 @@
 #include "../parameter_input.hpp"
 #include "units.hpp"
 
+#include "../pgen/ckj_code/ckj_code.hpp" // Abundance::mu
+
 //========================================================================================
 //! \fn void Units::Units(ParameterInput *pin)
 //! \brief default unit constructor from the parameter input (default is for ISM problems)
@@ -56,6 +58,36 @@ Units::Units(ParameterInput *pin) :
     code_length_cgs_ = Constants::pc_cgs;
     code_mass_cgs_ = Constants::hydrogen_mass_cgs*CUBE(code_length_cgs_);
     code_time_cgs_ = Constants::million_yr_cgs;
+  } else if (unit_system.compare("Bondi") == 0) {
+    //TODO 自定义一个根据 Bondi scale 来缩放的单位制？
+    //* CHANGEME 如果更改，记得把 yt 后处理也改掉
+    Real M_BH;
+    //* 如果 M_BH 没有设置或者为 0，长度单位为 0 就没意义了。这时就改用 <units> 中的 M_BH 替代（仅用于设定尺度，而不产生引力）
+    if (pin->GetOrAddReal("problem", "M_BH", 0.0) == 0.0) { 
+      M_BH = pin->GetReal("units", "M_BH");  // 如果这里还没有，就报错
+    } else {
+      M_BH = pin->GetReal("problem", "M_BH");
+    }
+    Real GM_BH_cgs = Constants::grav_const_cgs * M_BH * Constants::solar_mass_cgs;
+    Real T_init_cgs = pin->GetReal("initial_condition", "T_init_cgs");
+
+    //TODO 抽象成一个 struct 或函数，和初值那边通用。与 yt 同步
+    Real gamma = pin->GetReal("hydro", "gamma");
+    std::string cooling_model = pin->GetOrAddString("cooling", "cooling_model", "none");
+    bool cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
+    Real polytropic_index = cooling_flag ? 1.0 : gamma;  //* 根据是否开启 cooling 选择 1 或者 gamma。这里不从 input file 的 <initial_condition> block 读取，因为那个是用于近似初值的。
+    Real c_s_2_cgs = polytropic_index * Constants::k_boltzmann_cgs * T_init_cgs / Constants::hydrogen_mass_cgs / Abundance::mu;
+
+    Real R_Bondi = 2 * GM_BH_cgs / c_s_2_cgs;             //* 这里目前采用 Bondi 半径的定义，系数为 2
+    Real v_ff = std::sqrt(2 * GM_BH_cgs / R_Bondi);
+
+    code_length_cgs_ = R_Bondi;
+    code_time_cgs_ = R_Bondi / v_ff;
+    code_mass_cgs_ = Constants::hydrogen_mass_cgs*CUBE(code_length_cgs_);
+    // 从 pin 中读取 T_init，计算初始 Bondi 半径
+    // 注意 Bondi 半径的定义选取，究竟乘不乘 2
+    // 根据 Bondi 半径，计算相应的时标？
+    // 不过，要考虑到这里只是初始条件对应的 Bondi，对于后来的演化不一定有意义？
   } else if (unit_system.compare("custom") == 0) {
     // this must raise error if MLT units are not given in the input file
     code_mass_cgs_ = pin->GetReal("units", "mass_cgs");

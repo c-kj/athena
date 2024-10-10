@@ -75,19 +75,25 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     E_thermal = E_thermal_init_code * factor;
   }
 
-  // approximate_Bondi: 初速度 = 0，密度和能量遵循 Bondi profile 的近似解
+  // approximate_Bondi: 密度和能量遵循 Bondi profile 的近似解，初速度由系数控制
+  //TODO 把这里和 units.cpp 中的计算 Bondi 半径的部分统一用一个函数，避免不一致。不过目前不怎么用这个 approximate_Bondi，所以暂时不管
   else if (init_cond_type == "approximate_Bondi") {
     static Real velocity_factor = pin->GetOrAddReal("initial_condition","velocity_factor", 1.0);
     static Real alpha = pin->GetOrAddReal("initial_condition","alpha",1./3.);
     static Real R_out = pin->GetOrAddReal("problem", "R_out", std::numeric_limits<Real>::max());
+
     static Real M_BH = pin->GetOrAddReal("problem", "M_BH", 0.0) * punit->solar_mass_code;
     static Real GM_BH = M_BH * punit->grav_const_code;
-    static Real c_s = std::sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );  //? 这里算声速，应该使用 gamma 还是 polytropic_index?
+
+    static std::string cooling_model = pin->GetOrAddString("cooling", "cooling_model", "none");
+    static bool cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
+    static Real polytropic_index = pin->GetOrAddReal("initial_condition","polytropic_index", cooling_flag ? 1 : gamma);  // 从 input file 中读取；默认值：根据是否开启 cooling 选择 1 或者 gamma
+
+    static Real c_s = std::sqrt(polytropic_index * (gamma - 1.0) * E_thermal_init_code / rho_init_code );  // gamma-1 来自气体 P 和内能的换算，是由热容比 gamma 决定的；而前面的则是在 r 方向上 P = K rho^polytropic_index 的多方指数
     static Real R_Bondi = 2 * GM_BH / SQR(c_s);
     // 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改？
     static Real rho_inf = rho_init_code / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
 
-    static Real polytropic_index = pin->GetOrAddReal("initial_condition","polytropic_index", gamma);  // 如果 input 文件中设置了 polytropic_index，那么就用它，否则用 gamma
 
     // 用于计算 Bondi 吸积率中的因子的函数。这里自变量 gamma 实际上是 polytropic_index
     auto M_dot_factor = [](Real gamma) -> Real {
@@ -95,8 +101,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
       if (gamma == 1.0   ) return exp(3./2);  // gamma == 1 的情况下，需要取极限，M_dot_factor = exp(3/2)
       return pow(2/(5 - 3*gamma),(5 - 3*gamma)/(2.*(gamma - 1)));
     };
-    //BUG 这里使用的是 hydro 的 gamma，但若开启 cooling，实际上可能 isothermal 更合适。
-    //TODO 所以，考虑在 cooling_on 的情况下使用 block 内自定义的 polytropic_index 参数。但要弄清楚 c_s 的计算中使用的 gamma 应该用哪个。
+
     static Real M_dot = PI * rho_inf * SQR(GM_BH) / CUBE(c_s) * M_dot_factor(polytropic_index);  
 
     Real r = std::sqrt(SQR(x1) + SQR(x2) + SQR(x3));

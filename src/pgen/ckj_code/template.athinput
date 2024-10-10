@@ -1,6 +1,7 @@
 <comment>
 # 一些描述
 # 这个文件是我的 input file 的模板。把所有可能的参数都写进去，然后根据需要注释掉不需要的部分。
+# Unit: code unit 是一个标记，表明该参数的单位由 <unit> block 设定。其他 Unit: 则标记着这些参数有独立的单位
 problem   = CKJ TEMPLATE
 reference =
 configure = --prob turb+BH_accretion -hdf5 -fft -mpi --cxx=icpx # 未名二号
@@ -17,27 +18,27 @@ data_format = %13.6e           # 前面的数字为总长度，后面的数字�
 
 <output2>
 file_type   = hdf5             # HDF5 Output 是主要的输出数据
-dt          = 1e-2             # dt 适当大一点，避免输出过多
+dt          = 1e-2             # dt 适当大一点，避免输出过多。Unit: code unit
 variable    = prim,uov         # 只输出主变量 prim 和 uov，cons 变量由后处理计算，减小输出体积。注意用 ',' 分隔，不能有空格！
 id          = prim             # output id
 xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output3>
 file_type   = rst              # Restart File，用于断点续算
-dt          = 1.0              # 若设为 inf，则只输出初始和最终的 Restart File
+dt          = 1.0              # 若设为 inf，则只输出初始和最终的 Restart File。Unit: code unit
 
 # 以下是一些 slice 和 sum 的 output。体积小，因而后处理更快、可以输出更频繁。还可添加更多 outputs。
 <output4>
 file_type   = hdf5             # slice 输出
-dt          = 1e-3             # slice 的输出可以更密集
+dt          = 1e-3             # slice 的输出可以更密集。Unit: code unit
 variable    = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id          = x3_slice_0e0     # output id
-x3_slice    = 0.0              # slice position in X3
+x3_slice    = 0.0              # slice position in X3。Unit: code unit
 xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等后处理软件。MeshBlock 很多时，会很耗时间、文件体积很大。
 
 <output5>
 file_type   = hdf5             # sum 输出
-dt          = 1e-3             # sum 的输出可以相对密集
+dt          = 1e-3             # sum 的输出可以相对密集。Unit: code unit
 variable    = prim,uov         # 只输出主变量 prim 和 uov，减小输出体积
 id          = x3_sum           # output id
 x3_sum      = true             # sum over X3
@@ -47,7 +48,7 @@ xdmf        = 0                # 是否输出 XDMF 文件，用于 Paraview 等�
 <time>
 cfl_number  = 0.3              # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim        = -1               # cycle limit # -1 代表无穷大
-tlim        = 1.0              # time limit  # 总时间要比 t_freefall 更长
+tlim        = 1.0              # time limit  # 总时间要比 t_freefall 更长。Unit: code unit
 integrator  = rk2              # time integration algorithm
 xorder      = 2                # order of spatial reconstruction
 ncycle_out  = 1                # interval for stdout summary info
@@ -56,20 +57,20 @@ ncycle_out  = 1                # interval for stdout summary info
 # 注意在计算区域的两侧留出足够的额外空间，至少要 2*dx，这样方便计算散度、旋度等
 <mesh>
 nx1         = 64               # Number of zones in X1-direction
-x1min       = -1.1             # minimum value of X1
-x1max       =  1.1             # maximum value of X1
+x1min       = -1.1             # minimum value of X1. Unit: code unit
+x1max       =  1.1             # maximum value of X1. Unit: code unit
 ix1_bc      = outflow          # inner-X1 boundary flag
 ox1_bc      = outflow          # outer-X1 boundary flag
 
 nx2         = 64               # Number of zones in X2-direction
-x2min       = -1.1             # minimum value of X2
-x2max       =  1.1             # maximum value of X2
+x2min       = -1.1             # minimum value of X2. Unit: code unit
+x2max       =  1.1             # maximum value of X2. Unit: code unit
 ix2_bc      = outflow          # inner-X2 boundary flag
 ox2_bc      = outflow          # outer-X2 boundary flag
 
 nx3         = 64               # Number of zones in X3-direction
-x3min       = -1.1             # minimum value of X3
-x3max       =  1.1             # maximum value of X3
+x3min       = -1.1             # minimum value of X3. Unit: code unit
+x3max       =  1.1             # maximum value of X3. Unit: code unit
 ix3_bc      = outflow          # inner-X3 boundary flag
 ox3_bc      = outflow          # outer-X3 boundary flag
 
@@ -88,28 +89,28 @@ nx3        = 32
 
 # SMR 的细化区域 （目前不启用）
 # <refinement1>
-# x1min      = -0.5
-# x1max      = 0.5
-# x2min      = -0.5
-# x2max      = 0.5
-# x3min      = -0.5
-# x3max      = 0.5
+# x1min      = -0.5              # Unit: code unit
+# x1max      =  0.5              # Unit: code unit
+# x2min      = -0.5              # Unit: code unit
+# x2max      =  0.5              # Unit: code unit
+# x3min      = -0.5              # Unit: code unit
+# x3max      =  0.5              # Unit: code unit
 # level      = 1
 
 
 <hydro>
 gamma           = 1.666666666667   # gamma = C_p/C_v   # 取 gamma = 5/3，单分子气体，绝热
-# iso_sound_speed = 1.00           # equivalent to sqrt(gamma*p/d) for p=0.1, d=1
-grav_acc3       = 0.0              # 均匀重力场（内置但无文档）。
+# iso_sound_speed = 1.00           # equivalent to sqrt(gamma*p/d) for p=0.1, d=1. Unit: code unit
+grav_acc3       = 0.0              # 均匀重力场（内置但无文档）。Unit: code unit
 
 
 <turbulence>                       # 这里的 n 实际上是 L/λ，即区域内包含的波的个数。对应的物理尺度为 λ = L/n in code units
-dedt       = 10                    # Energy injection rate (for driven) or Total energy (for decaying)
-nlow       = 0                     # cut-off wavenumber at low-k    # 最低为 1，对应物理尺度为 L （这里可以取到 0 或负数，应该是指包含了所有更大尺度？）
-nhigh      = 16                    # cut-off wavenumber at high-k   # 最高为 1/2 * nx (Nyquist 频率，对应物理尺度为 2*dx)
+dedt       = 10                    # Energy injection rate (for driven) or Total energy (for decaying). Unit: code unit
+nlow       = 0                     # cut-off wavenumber at low-k    # 最低为 1，对应物理尺度为 L （这里可以取到 0 或负数，应该是指包含了所有更大尺度？）. Unit: code unit
+nhigh      = 16                    # cut-off wavenumber at high-k   # 最高为 1/2 * nx (Nyquist 频率，对应物理尺度为 2*dx). Unit: code unit
 expo       = 2.0                   # power-law exponent
-tcorr      = 0.1                   # correlation time for OU process (both impulsive and continuous)
-dtdrive    = 0.1                   # time interval between perturbation (impulsive)
+tcorr      = 0.1                   # correlation time for OU process (both impulsive and continuous). Unit: code unit
+dtdrive    = 0.1                   # time interval between perturbation (impulsive). Unit: code unit
 f_shear    = 0.5                   # the ratio of the shear component
 rseed      = -1                    # if non-negative, seed will be set by hand (slow PS generation)
 
@@ -117,8 +118,8 @@ rseed      = -1                    # if non-negative, seed will be set by hand (
 <problem>
 turb_flag  = 0         # 1 for decaying, 2 (impulsive) or 3 (continuous) for driven turbulence
 M_BH  = 0              # 中心黑洞的质量，Unit: Msun
-R_in  = 0              # CHANGEME: Sink radius 需要根据最小网格的大小来调整
-R_out = inf              
+R_in  = 0              # CHANGEME: Sink radius 需要根据最小网格的大小来调整. Unit: code unit
+R_out = inf            # 此半径以外的区域保持初值。Unit: code unit  
 T_sink = 1.0           # Sink 中的温度，用于设定 rho_sink, Unit: K
 
 
@@ -127,9 +128,9 @@ debug = 0                  # 控制 debug 的输出等级
 
 
 <AMR>                      # 我自定义的 AMR 参数
-time_start_AMR = 0         # AMR 的开始时间
+time_start_AMR = 0         # AMR 的开始时间。Unit: code unit
 
-<AMR/point>                # 这里的 level 和 SMR 的 level 概念一致，root=0. 而 <mesh> 的 numlevel 则是 root=1，因为这是 level 的数目
+<AMR/point>                # 这里的 level 和 SMR 的 level 概念一致，root=0. 而 <mesh> 的 numlevel 则是 root=1，因为这是 level 的数目。Unit: code unit
 point_1 = 0.0, 0.0, 0.0
 level_1 = 5
 point_2 = 0.0, 0.0, 0.0
@@ -138,8 +139,8 @@ level_2 = 5
 
 <initial_condition>
 init_cond_type = uniform                     # 可选值：uniform, power_law, approximate_Bondi, heart, rotation
-n_init_cgs = 1e4                             # 初始粒子数密度，单位 cm**-3
-T_init_cgs = 1e4                             # 初始温度，单位 K
+n_init_cgs = 1e4                             # 初始粒子数密度，Unit: cm**-3
+T_init_cgs = 1e4                             # 初始温度，Unit: K
 power_law_index = -1.5                       # power_law 的指数。-1.5 为 free-fall Bondi
 alpha = 0.333                                # approximate_Bondi 的参数 
 velocity_factor = 1.0                        # 速度的额外系数。目前只在 approximate_Bondi 中使用
@@ -148,27 +149,28 @@ polytropic_index = 1.0                       # approximate_Bondi 的多方指数
 <supernova>
 SN_flag = 1                                  # 控制 SN 的开关
 
-SN_1_time = 0.0, 0.2                         # 爆发的时间列表。可选格式：单个时间（0.3）；多个时间的列表（.0, .2, .4, .6）
+SN_1_time = 0.0, 0.2                         # 爆发的时间列表。可选格式：单个时间（0.3）；多个时间的列表（.0, .2, .4, .6）。Unit: code unit
 SN_1_energy = 1.0                            # 单次注入的总能量，默认为 0. Unit: 1e51 erg
 SN_1_mass = 1.0                              # 单次注入的总质量，默认为 0. Unit: 1 Msun
-SN_1_center = 0.0, 0.0, 0.0                  # region 的中心，默认在原点
-SN_1_radius = 0.01                           # region 的半径
-# SN_1_mass_radius = 0.0                       # 可以单独指定 mass_region 的半径。如果不指定，则与 energy_region 一致
+SN_1_center = 0.0, 0.0, 0.0                  # region 的中心，默认在原点。Unit: code unit
+SN_1_radius = 0.01                           # region 的半径。Unit: code unit
+# SN_1_mass_radius = 0.0                       # 可以单独指定 mass_region 的半径。如果不指定，则与 energy_region 一致。Unit: code unit
 # SN_1_region = ball                           # energy_region 和 mass_region 的种类。可选值：ball, heart
-# SN_1_velocity = 0.0, 0.0, 0.0                # SN 本身运动的速度
+# SN_1_velocity = 0.0, 0.0, 0.0                # SN 本身运动的速度。Unit: code unit
 
 #TEMP 临时，有待修改
 # SN_1_event_type = random                     # 生成 SN 的方式。可选值：random, 若为其他任何值，则为单个位置 single_point。
-# SN_1_tau_SF =                                # Unit: 遵循 unit_system ?? 或者固定为 Myr
+# SN_1_tau_SF =                                # Unit: Myr
 # SN_1_allow_region_shape = ball               # 可选值：ball, all。目前默认值为 ball
-# SN_1_allow_region_radius =                   # Unit: 遵循 unit_system。允许 SN 爆发的球形区域半径。默认为 inf.
-# SN_1_generate_region_radius =                # Unit: 遵循 unit_system。随机生成空间点的 box 半宽。默认为 allow_region_radius
+# SN_1_allow_region_radius =                   # 允许 SN 爆发的球形区域半径。默认为 inf. Unit: code unit
+# SN_1_generate_region_radius =                # 随机生成空间点的 box 半宽。默认为 allow_region_radius. Unit: code unit
 # SN_1_random_seed = 1234                      # 随机数种子，默认为 1234。
-# SN_1_t_start = 0.0                           # SN 爆发的开始时间，默认为 0.0
-# SN_1_t_end =                                 # SN 爆发的结束时间，默认为 <time/> block 的参数 tlim
+# SN_1_t_start = 0.0                           # SN 爆发的开始时间，默认为 0.0。Unit: code unit
+# SN_1_t_end =                                 # SN 爆发的结束时间，默认为 <time/> block 的参数 tlim。Unit: code unit
 
 <units>
-unit_system = supernova                      # 我自定义的 supernova 单位制, [length] = pc, [density] = m_H/cm**3, [time] = Myr
+unit_system = supernova                      # 我自定义的 supernova 单位制, [length] = pc, [density] = m_H/cm**3, [time] = Myr。可选值：[ism, galaxy, custom]（内置）, supernova, Bondi
+M_BH =                                       # 用于在 M_BH 未设定 or 为 0 时，给 Bondi unit system 确定长度单位 R_Bondi，中心黑洞的质量，Unit: Msun。 
 
 
 <cooling>
@@ -184,7 +186,7 @@ CFL_cooling  = 0.5                           # Cooling TimeStep 与 Cooling Time
 # RootFinder
 max_iter = 10                                # root_finder 的最大迭代次数，默认为 10
 rel_tol  = 1e-6                              # root_finder 的相对误差
-abs_tol  = 0                                 # root_finder 的绝对误差。默认为 0，防止 0 次迭代就退出
+abs_tol  = 0                                 # root_finder 的绝对误差。默认为 0，防止 0 次迭代就退出。Unit: ?? 应该是 root_finder 接收的函数的 unit
 
 # Subcycle
 CFL_subcycle = 0.5                           # dt_subcycle = CFL_subcycle * dt_cooling，若 CFL_subcycle > CFL_cooling 则不会使用 subcycle
@@ -192,7 +194,7 @@ subcycle_adaptive = true                     # dt_subcycle 是否在子循环中
 
 # Limiter
 limiter_on = false                           # true: limiter on
-T_floor = 1e2                                # Cooling 的温度 floor
+T_floor = 1e2                                # Cooling 的温度 floor。Unit: K
 
 #TODO 以下待实现
 root_finder = Newton                         # 可选值: Newton, FixedPoint, Bisection, ...
