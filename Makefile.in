@@ -28,7 +28,9 @@ GCOV_CMD := @GCOV_COMMAND@
 
 EXE_DIR := bin/
 EXECUTABLE := $(EXE_DIR)athena
-SRC_FILES := $(wildcard src/*.cpp) \
+# 我添加的文件。放在最前面，从而优先编译、优先报错
+SRC_FILES := $(wildcard src/pgen/ckj_code/*.cpp) \
+		 $(wildcard src/*.cpp) \
 	     $(wildcard src/bvals/*.cpp) \
 	     $(wildcard src/bvals/cc/*.cpp) \
 	     $(wildcard src/bvals/cc/fft_grav/*.cpp) \
@@ -72,7 +74,6 @@ SRC_FILES := $(wildcard src/*.cpp) \
 	     $(wildcard src/outputs/*.cpp) \
 	     src/pgen/default_pgen.cpp \
 	     src/pgen/$(PROBLEM_FILE) \
-	     $(wildcard src/pgen/ckj_code/*.cpp) \
 	     $(wildcard src/reconstruct/*.cpp) \
 	     $(wildcard src/scalars/*.cpp) \
 	     $(wildcard src/task_list/*.cpp) \

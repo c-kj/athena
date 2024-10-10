@@ -1,6 +1,8 @@
 #include <limits>
 
 #include "initial_condition.hpp"
+#include <vector>
+#include <algorithm> // std::min_element
 
 
 
@@ -63,7 +65,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     static Real R_out = pin->GetReal("initial_condition", "R_out");  //? 从 initial_condition 这个 block 获取吗？
     static Real power_law_index = pin->GetReal("initial_condition", "power_law_index"); // 对于类 Bondi profile，一般为负值
 
-    Real r = sqrt(SQR(x1) + SQR(x2) + SQR(x3));
+    Real r = std::sqrt(SQR(x1) + SQR(x2) + SQR(x3));
     Real factor = pow(r/R_out, power_law_index);
     rho = rho_init_code * factor; 
     //? power law 的 径向速度？
@@ -80,7 +82,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     static Real R_out = pin->GetOrAddReal("problem", "R_out", std::numeric_limits<Real>::max());
     static Real M_BH = pin->GetOrAddReal("problem", "M_BH", 0.0) * punit->solar_mass_code;
     static Real GM_BH = M_BH * punit->grav_const_code;
-    static Real c_s = sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );  //? 这里算声速，应该使用 gamma 还是 polytropic_index?
+    static Real c_s = std::sqrt(gamma * (gamma - 1.0) * E_thermal_init_code / rho_init_code );  //? 这里算声速，应该使用 gamma 还是 polytropic_index?
     static Real R_Bondi = 2 * GM_BH / SQR(c_s);
     // 目前这里是把 init 的值直接理解为边界值，然后换算出无穷远的值。以后可以考虑修改？
     static Real rho_inf = rho_init_code / approx_Bondi_rho_profile(alpha, R_Bondi, R_out);
@@ -97,7 +99,7 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     //TODO 所以，考虑在 cooling_on 的情况下使用 block 内自定义的 polytropic_index 参数。但要弄清楚 c_s 的计算中使用的 gamma 应该用哪个。
     static Real M_dot = PI * rho_inf * SQR(GM_BH) / CUBE(c_s) * M_dot_factor(polytropic_index);  
 
-    Real r = sqrt(SQR(x1) + SQR(x2) + SQR(x3));
+    Real r = std::sqrt(SQR(x1) + SQR(x2) + SQR(x3));
     rho = rho_inf * approx_Bondi_rho_profile(alpha, R_Bondi, r);
     //? approximate Bondi 的 径向速度？
     Real v = M_dot / (4 * PI * SQR(r) * rho);  // 根据连续性方程计算出速度
@@ -153,6 +155,19 @@ inline void InitialCondition::SetSingleCell(MeshBlock *pmb, const int i, const i
     for (int n=0; n<NSCALARS; ++n) {
       pmb->pscalars->s(n,k,j,i) = 0;
     }
+
+
+    // 计算整个 Mesh 距离中心的最小距离，取其 1/2 作为 initial_fluid 初始半径的默认值。这个大小选取比较随意
+    static auto mesh_size = pmb->pmy_mesh->mesh_size;
+    static std::vector<Real> mesh_size_list = {std::abs(mesh_size.x1min), std::abs(mesh_size.x1max),
+                                        std::abs(mesh_size.x2min), std::abs(mesh_size.x2max),
+                                        std::abs(mesh_size.x3min), std::abs(mesh_size.x3max)};
+    static Real min_mesh_size = *std::min_element(mesh_size_list.begin(), mesh_size_list.end());
+    
+    Real r = std::sqrt(SQR(x1) + SQR(x2) + SQR(x3));
+    pmb->pscalars->s(PassiveScalarIndex::initial_radius,k,j,i) = rho * r;   // initial_radius 的 prim 值设为 r (in code units)，用于标记流体微元的初始位置
+    Real R_initial_fluid = pin->GetOrAddReal("passive_scalar","R_initial_fluid", min_mesh_size / 2); 
+    pmb->pscalars->s(PassiveScalarIndex::initial_fluid,k,j,i) = r < R_initial_fluid ? rho : 0; // initial_fluid 的 prim 值在 R_initial_fluid 之内设为 rho，用于标记这部分流体
   }
 }
 

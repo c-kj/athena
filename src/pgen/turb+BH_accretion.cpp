@@ -428,11 +428,21 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     }
   }
 
+  // 手动给各个 Passive Scalar 场起名，输出到 info 下面的文件，从而指导后处理读取相应的 output （包括 hst 中的 %d-scalar）
+  // 目前先 hard code，每当有更改时要手动更新。未来可以考虑从 input file 中读取。
+  std::map<PassiveScalarIndex::PassiveScalarIndex, std::string> passive_scalar_names;
+  passive_scalar_names[PassiveScalarIndex::SN]             = "SN_tracer";
+  passive_scalar_names[PassiveScalarIndex::initial_radius] = "initial_radius";
+  passive_scalar_names[PassiveScalarIndex::initial_fluid ] = "initial_fluid";
+
+
   if (Globals::my_rank == 0) {
     std::cout << "pgen 编译于: " << __DATE__ << " " << __TIME__ << '\n'; 
     // Print unit 相关信息
     punit->PrintCodeUnits();
     punit->PrintConstantsInCodeUnits();
+    // 把 passive scalar 的名字写入文件，从而指导后处理在 output 文件中读取相应的 field
+    writeMapToFile(passive_scalar_names, "info/passive_scalar.txt");
     //TODO Print 自定义的参数
   }
 

@@ -5,6 +5,7 @@
 
 // 自定义函数所需的标准库导入
 #include <fstream>  // std::ofstream
+#include <map>
 
 // Athena++ headers
 #include "../../athena.hpp"
@@ -19,6 +20,25 @@ void printf_and_save_to_stream(std::ostream &stream, const char *format, ...);
 void check_and_create_directory(const std::string &path);
 
 void ensure_parent_directory_exists(const std::string &path);
+
+// 泛化的 writeMapToFile 函数，适用于装有各种类型的 map
+template <typename K, typename V>
+void writeMapToFile(const std::map<K, V>& map, const std::string& filename) {
+    ensure_parent_directory_exists(filename);  // 确保父目录存在
+
+    std::ofstream file{filename};
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filename << '\n';
+        return;
+    }
+
+    for (const auto& pair : map) {
+        file << pair.first << ": " << pair.second << '\n';
+    }
+
+    file.close();
+}
+
 
 std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_and_levels(ParameterInput *pin);
 

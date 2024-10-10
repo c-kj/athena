@@ -196,3 +196,6 @@ T_floor = 1e2                                # Cooling 的温度 floor
 
 #TODO 以下待实现
 root_finder = Newton                         # 可选值: Newton, FixedPoint, Bisection, ...
+
+<passive_scalar>
+R_initial_fluid = 0.0                        # 染色初始流体区域的半径。Unit: code unit

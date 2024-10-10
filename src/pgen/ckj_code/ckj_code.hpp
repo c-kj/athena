@@ -2,12 +2,20 @@
 
 // 这里放一些用于在多个自定义文件中 include 的声明。
 
-#include <map>
+#include <unordered_map>
 
 // Passive Scalar 与其对应的 index 的对应
+//* 修改时，记得在 pgen 中更改对应的名字
 namespace PassiveScalarIndex {
-  enum PassiveScalarIndex {SN};
+  enum PassiveScalarIndex {
+    SN,
+    initial_radius,
+    initial_fluid,
+    N_PassiveScalar_defined
+  };
 }
+
+static_assert(PassiveScalarIndex::N_PassiveScalar_defined == NSCALARS, "### ERROR: 已定义的 Passive Scalar 数目与 NSCALARS 不一致！");
 
 // SourceTerm （主要是 SN 和 cooling）的注入时机。按照单个 cycle 内的先后顺序排列，从而可以进行 < 比较
 // 有关源项的时机，参看我的笔记： 《黑洞吸积 SN 湍流 project.md》和《黑洞吸积 SN 湍流 TODO 历史.md》
