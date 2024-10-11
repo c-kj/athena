@@ -125,6 +125,7 @@ T_sink = 1.0           # Sink 中的温度，用于设定 rho_sink, Unit: K
 
 <debug>
 debug = 0                  # 控制 debug 的输出等级
+dcycle_report = 1000       # 隔多少个 cycle 输出一次运行速度的报告。
 
 
 <AMR>                      # 我自定义的 AMR 参数

@@ -134,3 +134,29 @@ std::vector<Real> read_vector(std::string str, char delimiter) {
   }
   return vec;
 }
+
+// 返回表示时间间隔的字符串
+std::string format_duration(const std::chrono::duration<double>& duration) {
+  using namespace std::chrono;
+  std::ostringstream oss;
+  // 自定义 days 类型
+  using days = std::chrono::duration<int, std::ratio<86400>>;
+
+  auto d = duration_cast<days>(duration);
+  auto h = duration_cast<hours>(duration - d);
+  auto m = duration_cast<minutes>(duration - d - h);
+  auto s = duration_cast<seconds>(duration - d - h - m);
+
+  if (d.count() > 0) {
+    oss << d.count() << "d ";
+  }
+  if (h.count() > 0 || d.count() > 0) {
+    oss << h.count() << "h ";
+  }
+  if (m.count() > 0 || h.count() > 0 || d.count() > 0) {
+    oss << m.count() << "m ";
+  }
+  oss << s.count() << "s";
+
+  return oss.str();
+}

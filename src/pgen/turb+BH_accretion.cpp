@@ -13,6 +13,8 @@
 #include <ctime>
 #include <sstream>
 #include <stdexcept>
+#include <chrono>
+#include <iomanip>
 
 // Athena++ headers
 #include "../athena.hpp"
@@ -347,6 +349,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   T_hot_warm = pin->GetOrAddReal("hst", "T_hot_warm", 1e5);
   T_warm_cold = pin->GetOrAddReal("hst", "T_warm_cold", 1e3);
 
+  dcycle_report = pin->GetOrAddInteger("debug","dcycle_report", 1000);  // 每隔多少个 cycle 输出一次 hst
+
 
   // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
@@ -633,6 +637,46 @@ void Mesh::UserWorkInLoop() {
   Real end_time = time + dt; 
   if (debug >= DEBUG_TimeStep) {
     printf_and_save_to_stream(debug_stream, "DEBUG_TimeStep: Mesh::UserWorkInLoop is called at end_time = %f \n", end_time);
+  }
+
+  // 进度汇报、耗时估算
+  // 预报：预期总时长、预期剩余时长。多种估算方法：历史、瞬时
+  //FUTURE 可以不仅用 dcycle 控制，还有现实中的时长间隔
+  if (Globals::my_rank == 0) {
+    //* 以下 time 指模拟中的 code time 的时间 pmesh->time，而 t 指现实中的 wall time
+    using namespace std::chrono;
+    static auto t_start = high_resolution_clock::now();
+    static auto t_last_report = high_resolution_clock::now();
+    static Real time_last_report = 0;   // 上次 report 时的 time，用于计算这个汇报周期的耗时
+    static int ncycle_last_report = 0;  // 上次 report 是在第几个 cycle，用于确定下次汇报是什么时候
+
+    int dcycle = ncycle <= dcycle_report ? (dcycle_report/10) : dcycle_report;  // 实际使用的 dcycle，在刚开始的一段时间内输出更频繁一些。这里用 int 的除法自动向下取整
+    if ( ncycle - ncycle_last_report >= dcycle) {  // 不采用 % 取余的方法，因为有可能 ncycle_out 不为 1，不是每个 cycle 都会有输出
+      auto t_now = high_resolution_clock::now();
+      duration<double> elapsed = t_now - t_start;
+      duration<double> elapsed_last_report = t_now - t_last_report;
+      
+      // 进度汇报
+      std::cout << "---------------------------------------------------------------\n";
+      std::cout << std::fixed << std::setprecision(2); // 百分比使用固定小数点
+      std::cout << "当前耗时: " <<  format_duration(elapsed) << ", 进度 " << time/(tlim - start_time) * 100 << "% \n";
+      std::cout << std::scientific << std::setprecision(2);  // 以下数字使用科学计数法。时分秒除外
+      std::cout << "当前模拟中 time = " << time * punit->million_yr_code << " Myr, 全长 " << (tlim - start_time) * punit->million_yr_code << "Myr\n";
+      std::cout << "最近 " << dcycle << " 个 cycle 耗时: " << format_duration(elapsed_last_report) << ", 模拟中时间推进了 " << (time - time_last_report) << " code_time, 即 " << (time - time_last_report) * punit->million_yr_code << " Myr\n";
+
+      // 耗时估算
+      duration<double> t_total_all = elapsed / time * (tlim - start_time);  // 基于历史耗时，估计总时长
+      duration<double> t_remains_all = t_total_all - elapsed;               // 根据总时长估计剩余时长
+      std::cout << "根据历史耗时，预计总时长: " << format_duration(t_total_all)     << "，预计剩余时长: " << format_duration(t_remains_all) << "\n";
+      duration<double> t_remains_current = elapsed_last_report / (time - time_last_report) * (tlim - time);   // 根据最近耗时，估计剩余时长
+      duration<double> t_total_current = elapsed + t_remains_current;                                         // 根据剩余时长，估计总时长
+      std::cout << "根据最近耗时，预计总时长: " << format_duration(t_total_current) << "，预计剩余时长: " << format_duration(t_remains_current) << "\n";
+      std::cout << "---------------------------------------------------------------\n";
+
+      t_last_report = t_now;
+      time_last_report = time;
+      ncycle_last_report = ncycle;
+    }
   }
   return;
 }

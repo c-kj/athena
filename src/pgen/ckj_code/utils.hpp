@@ -6,6 +6,7 @@
 // 自定义函数所需的标准库导入
 #include <fstream>  // std::ofstream
 #include <map>
+#include <chrono>
 
 // Athena++ headers
 #include "../../athena.hpp"
@@ -45,6 +46,8 @@ std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_an
 std::array<Real, 3> read_array(std::string str, char delimiter=',');
 std::vector<Real> read_vector(std::string str, char delimiter=',');
 
+
+std::string format_duration(const std::chrono::duration<double>& duration);
 
 // debug 机制。以后 utils 比较臃肿时可以挪到单独的 debugging.hpp 中定义。
 

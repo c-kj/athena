@@ -33,6 +33,8 @@ Real M_BH, GM_BH, R_in, R_out, rho_sink;
 
 Real T_hot_warm, T_warm_cold;
 
+int dcycle_report;
+
 
 
 //FUTURE 这几个「自定义机制」对象/指针，考虑挪到 ckj_code.hpp 中去，从而可以在其他模块、pgen 中引用
