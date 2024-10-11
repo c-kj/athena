@@ -343,6 +343,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   Real mu = Abundance::mu;
   rho_sink = mu * pressure_floor * punit->hydrogen_mass_code / (punit->k_boltzmann_code * T_sink);
 
+  // hst 中区分不同 phase 的温度，in cgs
+  T_hot_warm = pin->GetOrAddReal("hst", "T_hot_warm", 1e5);
+  T_warm_cold = pin->GetOrAddReal("hst", "T_warm_cold", 1e3);
+
 
   // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
@@ -420,6 +424,29 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       EnrollUserHistoryOutput(hst_index::SN_injected_mass,   hst_SN_injected_mass,   "SN_injected_mass");
       EnrollUserHistoryOutput(hst_index::SN_injected_number, hst_SN_injected_number, "SN_injected_number", UserHistoryOperation::min);  // 每个 MeshBlock 上都记录了同样的数字，所以取 min 就行
     }
+    // 总角动量
+    EnrollUserHistoryOutput(hst_index::total_angular_momentum_x, hst_total_angular_momentum, "total_angular_momentum_x");
+    EnrollUserHistoryOutput(hst_index::total_angular_momentum_y, hst_total_angular_momentum, "total_angular_momentum_y");
+    EnrollUserHistoryOutput(hst_index::total_angular_momentum_z, hst_total_angular_momentum, "total_angular_momentum_z");
+
+    // multi-phase ISM 的 hst output
+    EnrollUserHistoryOutput(hst_index::ISM_hot_volume, hst_multiphase_ISM, "ISM_hot_volume");
+    EnrollUserHistoryOutput(hst_index::ISM_warm_volume, hst_multiphase_ISM, "ISM_warm_volume");
+    EnrollUserHistoryOutput(hst_index::ISM_cold_volume, hst_multiphase_ISM, "ISM_cold_volume");
+
+    EnrollUserHistoryOutput(hst_index::ISM_hot_mass,   hst_multiphase_ISM, "ISM_hot_mass");
+    EnrollUserHistoryOutput(hst_index::ISM_warm_mass,   hst_multiphase_ISM, "ISM_warm_mass");
+    EnrollUserHistoryOutput(hst_index::ISM_cold_mass,  hst_multiphase_ISM, "ISM_cold_mass");
+
+    EnrollUserHistoryOutput(hst_index::ISM_hot_thermal_energy, hst_multiphase_ISM, "ISM_hot_thermal_energy");
+    EnrollUserHistoryOutput(hst_index::ISM_warm_thermal_energy, hst_multiphase_ISM, "ISM_warm_thermal_energy");
+    EnrollUserHistoryOutput(hst_index::ISM_cold_thermal_energy, hst_multiphase_ISM, "ISM_cold_thermal_energy");
+
+    EnrollUserHistoryOutput(hst_index::ISM_hot_kinetic_energy, hst_multiphase_ISM, "ISM_hot_kinetic_energy");
+    EnrollUserHistoryOutput(hst_index::ISM_warm_kinetic_energy, hst_multiphase_ISM, "ISM_warm_kinetic_energy");
+    EnrollUserHistoryOutput(hst_index::ISM_cold_kinetic_energy, hst_multiphase_ISM, "ISM_cold_kinetic_energy");
+
+
     // 把未 enroll 的 hst output 名字设为 "NULL"。否则目前的 athena_read.py 中的 hst 读取无法处理空的 header，各列会错位。
     for (int n=0; n<nuser_history_output_; n++) {
       if (user_history_func_[n] == nullptr) {
@@ -478,6 +505,12 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
       ruser_meshblock_data[idx::SN_injected_mass  ].NewAthenaArray(1);  // SN 注入的总质量
       ruser_meshblock_data[idx::SN_injected_number].NewAthenaArray(1);  // SN 注入的总个数
     }
+
+    // 总角动量
+    ruser_meshblock_data[idx::total_angular_momentum].NewAthenaArray(3);
+    // multi-phase ISM
+    ruser_meshblock_data[idx::ISM].NewAthenaArray(MultiPhaseISMIndex::N_MultiPhaseISM, ISMPropertyIndex::N_ISMProperty);
+
   }
 
   // 设定 UOV
@@ -525,6 +558,69 @@ void MeshBlock::UserWorkInLoop() {
   // 在这里做 cons2prim 的话，由于 MeshBlock 之间的通信在此之前，会造成数据不自洽，导致 MeshBlock 的边界上不对。因此这里不能 cons2prim
 
   // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
+
+  // 计算部分 hst output 所需要的数据
+  //TODO: 这里每个 cycle 都调用，但实际上只有输出 hst 的时候才需要。
+  // 有待改进速度，但目前这里占比只有 0.3%，暂时不管
+  // 几种方法：
+  // 1. 改为一个个单独的 hst 函数
+  // 2. 在这里判断是否需要输出，不需要则直接 return
+  // 3. 在第一个 hst 函数中做所有事，后续只需要读取
+  // 4. 自定义一个 UserWorkBeforeHstOutput，只在需要输出 hst 时调用
+  namespace idx = RealUserMeshBlockDataIndex;  // 简化名称。反正这里只用得到 RealUserMeshBlockData
+  ruser_meshblock_data[idx::total_angular_momentum].ZeroClear();  // 先清空，才能在遍历时累加
+  ruser_meshblock_data[idx::ISM].ZeroClear();
+  AthenaArray<Real> vol(ncells1);
+  for (int k=ks; k<=ke; k++) {
+    Real z = pcoord->x3v(k);
+    for (int j=js; j<=je; j++) {
+      Real y = pcoord->x2v(j);
+      pcoord->CellVolume(k, j, is, ie, vol);
+      // 这里似乎不能 SIMD，因为 reduction 比较复杂
+      for (int i=is; i<=ie; i++) {
+        Real x = pcoord->x1v(i);
+        Real cell_volume = vol(i);
+
+
+        // 动量 (用于计算角动量)
+        Vector momentum;
+        for (int l = 0; l < 3; ++l) {
+          momentum[l] = phydro->u(IM1+l,k,j,i) * cell_volume;
+        }
+
+        // 角动量
+        Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
+        for (int l = 0; l < 3; ++l) {
+          ruser_meshblock_data[idx::total_angular_momentum](l) += angular_momentum[l];
+        }
+
+
+        const Real rho = phydro->w(IDN,k,j,i);
+        const Real P   = phydro->w(IPR,k,j,i);
+        const Real E_thermal = P / (peos->GetGamma() - 1.0);
+        const Real E_k       = phydro->u(IEN,k,j,i) - E_thermal;
+        const Real T_cgs = Abundance::mu * P / rho * pmy_mesh->punit->code_temperature_mu_cgs;
+        
+
+        MultiPhaseISMIndex::MultiPhaseISMIndex phase;
+        if (T_hot_warm <= T_cgs) { // hot
+          phase = MultiPhaseISMIndex::hot;
+        } else if (T_warm_cold <= T_cgs and T_cgs < T_hot_warm ) { // warm
+          phase = MultiPhaseISMIndex::warm;
+        } else { // cold
+          phase = MultiPhaseISMIndex::cold;
+        }
+
+        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::volume) += cell_volume;
+        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::mass) += rho * cell_volume;
+        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::thermal_energy) += E_thermal * cell_volume;
+        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::kinetic_energy) += E_k * cell_volume;
+
+
+      }
+    }
+  }
+
   return;
 }
 

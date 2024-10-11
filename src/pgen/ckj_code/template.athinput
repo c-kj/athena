@@ -14,7 +14,7 @@ problem_id  = TEMPLATE         # 输出文件的 basename。常用的有: Bondi,
 <output1>
 file_type   = hst              # History data dump
 dcycle      = 1                # 每个步长都输出。hst 文件应该不会太大，所以可以很密集。
-data_format = %13.6e           # 前面的数字为总长度，后面的数字为小数点后的长度。%21.14e 是 double 类型的最大精度，%13.6e 是 float 类型的最大精度。
+data_format = %21.14e          # 前面的数字为总长度，后面的数字为小数点后的长度。%21.14e 是 double 类型的最大精度，%13.6e 是 float 类型的最大精度。最好用 double，否则 diff(time) 精度太低了！
 
 <output2>
 file_type   = hdf5             # HDF5 Output 是主要的输出数据
@@ -201,3 +201,7 @@ root_finder = Newton                         # 可选值: Newton, FixedPoint, Bi
 
 <passive_scalar>
 R_initial_fluid = 0.0                        # 染色初始流体区域的半径。Unit: code unit
+
+<hst>
+T_hot_warm = 1e5
+T_warm_cold = 1e3

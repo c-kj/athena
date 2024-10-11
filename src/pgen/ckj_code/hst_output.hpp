@@ -43,6 +43,24 @@ namespace hst_index {
     SN_injected_energy,
     SN_injected_mass,
     SN_injected_number,
+    // 总角动量
+    total_angular_momentum_x,
+    total_angular_momentum_y,
+    total_angular_momentum_z,
+    // multi-phase ISM 的分析
+    ISM_hot_volume,
+    ISM_warm_volume,
+    ISM_cold_volume,
+    ISM_hot_mass,
+    ISM_warm_mass,
+    ISM_cold_mass,
+    ISM_hot_thermal_energy,
+    ISM_warm_thermal_energy,
+    ISM_cold_thermal_energy,
+    ISM_hot_kinetic_energy,
+    ISM_warm_kinetic_energy,
+    ISM_cold_kinetic_energy,
+
     // 其他 ...
     N_UserHistoryOutput // 总个数
   };
@@ -163,6 +181,37 @@ Real hst_SN_injected_mass(MeshBlock *pmb, int iout) {
 Real hst_SN_injected_number(MeshBlock *pmb, int iout) {
   return pmb->ruser_meshblock_data[idx::SN_injected_number](0);
 }
+
+// 总角动量
+Real hst_total_angular_momentum(MeshBlock *pmb, int iout) {
+  switch (iout) {
+    case hst_index::total_angular_momentum_x: return pmb->ruser_meshblock_data[idx::total_angular_momentum](0);
+    case hst_index::total_angular_momentum_y: return pmb->ruser_meshblock_data[idx::total_angular_momentum](1);
+    case hst_index::total_angular_momentum_z: return pmb->ruser_meshblock_data[idx::total_angular_momentum](2);
+  }
+}
+
+
+// multi-phase ISM 的分析
+Real hst_multiphase_ISM(MeshBlock *pmb, int iout) {
+  switch (iout) {
+    case hst_index::ISM_hot_volume:          return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::hot, ISMPropertyIndex::volume);
+    case hst_index::ISM_hot_mass:            return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::hot, ISMPropertyIndex::mass);
+    case hst_index::ISM_hot_thermal_energy:  return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::hot, ISMPropertyIndex::thermal_energy);
+    case hst_index::ISM_hot_kinetic_energy:  return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::hot, ISMPropertyIndex::kinetic_energy);
+    case hst_index::ISM_warm_volume:         return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::warm, ISMPropertyIndex::volume);
+    case hst_index::ISM_warm_mass:           return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::warm, ISMPropertyIndex::mass);
+    case hst_index::ISM_warm_thermal_energy: return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::warm, ISMPropertyIndex::thermal_energy);
+    case hst_index::ISM_warm_kinetic_energy: return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::warm, ISMPropertyIndex::kinetic_energy);
+    case hst_index::ISM_cold_volume:         return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::cold, ISMPropertyIndex::volume);
+    case hst_index::ISM_cold_mass:           return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::cold, ISMPropertyIndex::mass);
+    case hst_index::ISM_cold_thermal_energy: return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::cold, ISMPropertyIndex::thermal_energy);
+    case hst_index::ISM_cold_kinetic_energy: return pmb->ruser_meshblock_data[idx::ISM](MultiPhaseISMIndex::cold, ISMPropertyIndex::kinetic_energy);
+  }
+}
+
+
+
 
 
 } // namespace hst_funcs

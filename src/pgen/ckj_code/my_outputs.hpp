@@ -32,9 +32,34 @@ namespace RealUserMeshBlockDataIndex {
     SN_injected_energy,
     SN_injected_mass,
     SN_injected_number,
+    // 总角动量
+    total_angular_momentum,
+    // multi-phase ISM 的分析
+    ISM,
     // 其他 ...
     N_RealUserMeshBlockData  // DataField 的个数，用于 AllocateUserOutputVariables。必须放在 enum 的最后
   };
 }
+
+namespace MultiPhaseISMIndex {
+  enum MultiPhaseISMIndex {
+    hot,
+    warm,
+    cold,
+
+    N_MultiPhaseISM
+  };
+}
+namespace ISMPropertyIndex {
+  enum ISMPropertyIndex {
+    volume,
+    mass,
+    thermal_energy,
+    kinetic_energy,
+
+    N_ISMProperty
+  };
+}
+
 
 #endif  // MY_OUTPUTS_HPP_
