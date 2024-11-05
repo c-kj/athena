@@ -13,7 +13,7 @@
 #include "supernova.hpp"
 #include "utils.hpp"
 #include "initial_condition.hpp"  // rho_from_n_cgs 用于从初始条件中的 n_cgs 换算为 rho，用于计算 SN Rate
-#include "my_outputs.hpp"
+#include "hst_output.hpp"
 
 
 /* -------------------------------------------------------------------------- */
@@ -366,13 +366,13 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
       }
     }
   }
-  namespace idx = RealUserMeshBlockDataIndex;
   // 记录 SN 注入的能量、质量、个数
   //* 只有当 SN 的 SourceTerm 在 AfterSourceTerm，也即最后一个 stage 中调用时，以下记录才是准确的。否则由于 integrator 的 多个 stage，要偏大一些。
-  pmb->ruser_meshblock_data[idx::SN_injected_energy](0) += injected_energy;
-  pmb->ruser_meshblock_data[idx::SN_injected_mass  ](0) += injected_mass;
-  pmb->ruser_meshblock_data[idx::SN_injected_number](0) += supernova_to_inject.size(); // 在每个 MeshBlock 上都记录 SN 的个数，各个 MeshBlock 都一样，在 hst 函数中用 min 汇总。
-
+  auto hst_data = hst->get_proxy(pmb);
+  hst_data["SN_injected_energy"] += injected_energy;
+  hst_data["SN_injected_mass"  ] += injected_mass;
+  hst_data["SN_injected_number"] += supernova_to_inject.size();    // 在每个 MeshBlock 上都记录 SN 的个数，各个 MeshBlock 都一样，在 hst 函数中用 min 汇总。
+  
   return;
 }
 

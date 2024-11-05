@@ -235,6 +235,9 @@ class Mesh {
   friend class ATHDF5Output;
 #endif
 
+  // ckj: 我添加的 hst 机制。需要设为 friend class
+  friend class HSTManager;
+
  public:
   // 2x function overloads of ctor: normal and restarted simulation
   explicit Mesh(ParameterInput *pin, int test_flag=0);

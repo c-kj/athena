@@ -175,7 +175,8 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
     }
   }
 
-  pmb->ruser_meshblock_data[RealUserMeshBlockDataIndex::BH_gravity_work](0) = BH_gravity_work;  // 赋值到 ruser_meshblock_data 中，以便输出到 hst
+  auto hst_data = hst->get_proxy(pmb);
+  hst_data["BH_gravity_work"] = BH_gravity_work;  // 用于输出到 hst
   
   // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
   //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
@@ -196,12 +197,13 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
-  namespace idx = RealUserMeshBlockDataIndex;  // 简化名称。反正这里只用得到 RealUserMeshBlockData
+
+  auto hst_data = hst->get_proxy(pmb);
 
   // 在第一个 stage 清零吸积率，用于统计当前 cycle 内的吸积率。目前放在 SMBH_sink 源项内，是为了把涉及吸积量的计算都放在一起。
   if (ckj_plugin::current_stage == 1) { 
-    pmb->ruser_meshblock_data[idx::accretion_rate](0) = 0.0;  
-    pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) = 0.0;  
+    hst_data["accretion_rate"] = 0.0;
+    hst_data["accretion_rate_SN_tracer"] = 0.0;
   }
 
   Real mesh_dt = pmb->pmy_mesh->dt;
@@ -229,31 +231,31 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
 
           // 质量
           const Real accreted_mass = (dens - dens_new) * cell_volume * source_weight;       // 计算当前 cell 内减去的质量。根据前面的 min，目前这里是非负的
-          pmb->ruser_meshblock_data[idx::accreted_mass ](0) += accreted_mass;            // 记录被 BH 吸收的质量
-          pmb->ruser_meshblock_data[idx::accretion_rate](0) += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
+          hst_data["accreted_mass"] += accreted_mass;             // 记录被 BH 吸收的质量
+          hst_data["accretion_rate"] += accreted_mass / mesh_dt;  // 记录吸积率。注意这里分母是 mesh_dt，而不是 dt，因为各个 stage 中传入的 dt 不同，但都应该算是在这个 cycle 对应的 dt 中吸积的质量。
 
           // 能量
           const Real accreted_energy = cons(IEN,k,j,i) * cell_volume * source_weight;  // 计算当前 cell 内的能量（包括动能和内能）
-          pmb->ruser_meshblock_data[idx::accreted_energy](0) += accreted_energy;  // 记录被 BH 吸收的能量
+          hst_data["accreted_energy"] += accreted_energy;  // 记录被 BH 吸收的能量
 
           // 动量
           Vector momentum;
           for (int l = 0; l < 3; ++l) {
             momentum[l] = cons(IM1+l,k,j,i) * cell_volume * source_weight;
-            pmb->ruser_meshblock_data[idx::accreted_momentum](l) += momentum[l];  // 记录被 BH 吸收的动量
+            hst_data[std::string("accreted_momentum_") + "xyz"[l]] += momentum[l]; // 记录被 BH 吸收的动量。注意这里必须用 string 否则两个都是 char，+ 不是字符串连接！
           }
 
           // 角动量
           Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
           for (int l = 0; l < 3; ++l) {
-            pmb->ruser_meshblock_data[idx::accreted_angular_momentum](l) += angular_momentum[l];  // 记录被 BH 吸收的角动量
+            hst_data[std::string("accreted_angular_momentum_") + "xyz"[l]] += angular_momentum[l]; // 记录被 BH 吸收的角动量
           }
           
           // SN Tracer
           if (NSCALARS > 0) {
             Real SN_tracer_mass = cons_scalar(PassiveScalarIndex::SN,k,j,i) * cell_volume * source_weight;
-            pmb->ruser_meshblock_data[idx::accreted_SN_tracer](0)       += SN_tracer_mass;
-            pmb->ruser_meshblock_data[idx::accretion_rate_SN_tracer](0) += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
+            hst_data["accreted_SN_tracer"] += SN_tracer_mass;
+            hst_data["accretion_rate_SN_tracer"] += SN_tracer_mass / mesh_dt;  // 记录 SN Tracer 的吸积率
           }
 
 
@@ -299,6 +301,141 @@ Real MyTimeStep(MeshBlock *pmb) {
   return min_dt;
 }
 
+
+
+
+// 注册所有的 HST 输出条目
+void HSTManager::register_all_entries() {
+  add_entry("num_MeshBlocks");
+  add_entry("dt_hyperbolic", UserHistoryOperation::min);
+  add_entry("dt_user", UserHistoryOperation::min);
+
+  // 黑洞吸积量
+  if (R_in > 0.0) {    // 只有当存在 sink region 时启用
+    add_entry("accreted_mass");                // 黑洞吸积的总质量
+    add_entry("accretion_rate");               // 黑洞当前 cycle 的吸积率。
+    add_entry("accreted_SN_tracer");           // 黑洞吸积的 SN ejecta 的质量
+    add_entry("accretion_rate_SN_tracer");     // 黑洞当前 cycle 的 SN Tracer 的吸积率。
+    add_entry("accreted_energy");              // 黑洞吸积的总能量
+    add_entry("accreted_momentum_x");          // 黑洞吸积的总动量
+    add_entry("accreted_momentum_y");       
+    add_entry("accreted_momentum_z");
+    add_entry("accreted_angular_momentum_x");  // 黑洞吸积的总角动量
+    add_entry("accreted_angular_momentum_y");
+    add_entry("accreted_angular_momentum_z");
+  }
+
+  if (cooling.cooling_flag) {
+    add_entry("total_cooling_loss");
+  }
+  if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
+    add_entry("BH_gravity_work");   // SMBH 引力对流体做的功
+  }
+  if (supernovae.SN_flag > 0) {
+    add_entry("SN_injected_energy");  // SN 注入的总能量
+    add_entry("SN_injected_mass");    // SN 注入的总质量
+    add_entry("SN_injected_number", UserHistoryOperation::min);  // SN 注入的总个数
+  }
+  // 总角动量
+  add_entry("total_angular_momentum_x");
+  add_entry("total_angular_momentum_y");
+  add_entry("total_angular_momentum_z");
+
+  // multi-phase ISM 的 hst output
+  add_entry("ISM_hot_volume");
+  add_entry("ISM_warm_volume");
+  add_entry("ISM_cold_volume");
+
+  add_entry("ISM_hot_mass");
+  add_entry("ISM_warm_mass");
+  add_entry("ISM_cold_mass");
+
+  add_entry("ISM_hot_thermal_energy");
+  add_entry("ISM_warm_thermal_energy");
+  add_entry("ISM_cold_thermal_energy");
+
+  add_entry("ISM_hot_kinetic_energy");
+  add_entry("ISM_warm_kinetic_energy");
+  add_entry("ISM_cold_kinetic_energy");
+
+}
+
+
+void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
+
+  auto hst_data = hst->get_proxy(pmb);  // 用于输出到 hst
+
+  // 简写 pmb 的各个成员变量
+  Coordinates *pcoord = pmb->pcoord;
+  Hydro *phydro = pmb->phydro;
+  EquationOfState *peos = pmb->peos;
+  Mesh *pmy_mesh = pmb->pmy_mesh;
+  const int ks = pmb->ks, ke = pmb->ke, js = pmb->js, je = pmb->je, is = pmb->is, ie = pmb->ie;
+
+  //* 清零：对于「当前时刻的统计量」，应当先清零，再在遍历 kji 时累加。
+  // 清零角动量
+  for (auto dir : std::string("xyz")) {  // 必须用 std::string("xyz")，否则 "xyz" 是 const char[4]，隐含一个尾随的 '\0'!
+    hst_data[std::string("total_angular_momentum_") + dir] = 0.0;
+  }
+  // 清零 multi-phase ISM 统计量
+  for (auto phase : {"hot", "warm", "cold"}) {
+    for (auto prop : {"volume", "mass", "thermal_energy", "kinetic_energy"}) {
+      hst_data[std::string("ISM_") + phase + "_" + prop] = 0.0;
+    }
+  }
+
+  AthenaArray<Real> vol(pmb->ncells1);
+  for (int k=ks; k<=ke; k++) {
+    Real z = pcoord->x3v(k);
+    for (int j=js; j<=je; j++) {
+      Real y = pcoord->x2v(j);
+      pcoord->CellVolume(k, j, is, ie, vol);
+      // 这里似乎不能 SIMD，因为 reduction 比较复杂
+      for (int i=is; i<=ie; i++) {
+        Real x = pcoord->x1v(i);
+        Real cell_volume = vol(i);
+
+        // 动量 (用于计算角动量)
+        Vector momentum;
+        for (int l = 0; l < 3; ++l) {
+          momentum[l] = phydro->u(IM1+l,k,j,i) * cell_volume;
+        }
+        // 总角动量
+        Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
+        for (int l = 0; l < 3; ++l) {
+          hst_data[std::string("total_angular_momentum_") + "xyz"[l] ] += angular_momentum[l];
+        }
+
+        // multi-phase ISM 的统计量
+        const Real rho = phydro->w(IDN,k,j,i);
+        const Real P   = phydro->w(IPR,k,j,i);
+        const Real E_thermal = P / (peos->GetGamma() - 1.0);
+        const Real E_k       = phydro->u(IEN,k,j,i) - E_thermal;
+        const Real T_cgs = Abundance::mu * P / rho * pmy_mesh->punit->code_temperature_mu_cgs;
+        
+        std::string phase;
+        if (T_hot_warm <= T_cgs) { // hot
+          phase = "hot";
+        } else if (T_warm_cold <= T_cgs and T_cgs < T_hot_warm ) { // warm
+          phase = "warm";
+        } else { // cold
+          phase = "cold";
+        }
+
+        hst_data["ISM_" + phase + "_volume"] += cell_volume;
+        hst_data["ISM_" + phase + "_mass"] += rho * cell_volume;
+        hst_data["ISM_" + phase + "_thermal_energy"] += E_thermal * cell_volume;
+        hst_data["ISM_" + phase + "_kinetic_energy"] += E_k * cell_volume;
+      }
+    }
+  }
+
+  // hst 中的瞬时量
+  hst_data["num_MeshBlocks"] = 1.0;
+  hst_data["dt_hyperbolic"] = pmy_mesh->dt_hyperbolic;
+  hst_data["dt_user"] = pmy_mesh->dt_user;
+
+}
 
 
 
@@ -361,6 +498,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   progress_report = std::unique_ptr<ProgressReport>(new ProgressReport(this, pin));  // 初始化 progress_report
 
+  hst = std::unique_ptr<HSTManager>(new HSTManager(this, RealUserMeshBlockDataIndex::hst));  // 初始化 hst 机制
 
   if (supernovae.source_term_position <= SourceTermPosition::AfterSourceTerm && cooling.source_term_position == SourceTermPosition::UserWorkInLoop) {
     std::cout << "### WARNING: Supernova 在 SourceTerm 中/结尾 注入，而 Cooling 在 UserWorkInLoop 中。这会导致注入 SN 那一步的 Cooling TimeStep 未受限制！ \n";
@@ -394,73 +532,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // 自定义的步长限制
   EnrollUserTimeStepFunction(MyTimeStep);  // 无论如何都加入自定义步长限制。如果没开 Cooling 之类的，则 MyTimeStep 立即返回一个很大的数，不影响速度
 
-
-  // Enroll 自定义的 hst output。目前不方便挪到单独的文件中，因为这里的分支条件依赖于 pgen 的文件级别变量。
-  {  // 防止 namespace 泄露
-    //* 这里不 using namespace hst_index 是因为 dt_user 与 Mesh 的成员变量名字撞了。
-    using namespace hst_funcs;  // 简化名称
-
-    // 如果不 Enroll 某些 hst 函数，那么对应的 user_history_func_[i] 就会是 nullptr，而在 HistoryOutput 中有判空，不会进行计算和跨 MPI 的收集。
-    // 但是最后会写入文件，header 是空字符串。 //? 会输出 nan 还是 0 还是什么？有待试验
-    AllocateUserHistoryOutput(hst_index::N_UserHistoryOutput);
-    EnrollUserHistoryOutput(hst_index::num_MeshBlocks, hst_num_MeshBlocks, "num_MeshBlocks");
-    EnrollUserHistoryOutput(hst_index::dt_hyperbolic,  hst_dt_hyperbolic,  "dt_hyperbolic", UserHistoryOperation::min);
-    EnrollUserHistoryOutput(hst_index::dt_user,        hst_dt_user,        "dt_user",       UserHistoryOperation::min); // 有必要把 dt_cooling 单独区分出来的吗？
-    if (R_in > 0.0) {
-      EnrollUserHistoryOutput(hst_index::accreted_mass,               hst_accreted_mass,               "accreted_mass");
-      EnrollUserHistoryOutput(hst_index::accretion_rate,              hst_accretion_rate,              "accretion_rate");
-      EnrollUserHistoryOutput(hst_index::accreted_SN_tracer,          hst_accreted_SN_tracer,          "accreted_SN_tracer");
-      EnrollUserHistoryOutput(hst_index::accretion_rate_SN_tracer,    hst_accretion_rate_SN_tracer,    "accretion_rate_SN_tracer");
-      EnrollUserHistoryOutput(hst_index::accreted_energy,             hst_accreted_energy,             "accreted_energy");
-      EnrollUserHistoryOutput(hst_index::accreted_momentum_x,         hst_accreted_momentum_x,         "accreted_momentum_x");
-      EnrollUserHistoryOutput(hst_index::accreted_momentum_y,         hst_accreted_momentum_y,         "accreted_momentum_y");
-      EnrollUserHistoryOutput(hst_index::accreted_momentum_z,         hst_accreted_momentum_z,         "accreted_momentum_z");
-      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_x, hst_accreted_angular_momentum_x, "accreted_angular_momentum_x");  
-      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_y, hst_accreted_angular_momentum_y, "accreted_angular_momentum_y");
-      EnrollUserHistoryOutput(hst_index::accreted_angular_momentum_z, hst_accreted_angular_momentum_z, "accreted_angular_momentum_z");
-    }
-    if (cooling.cooling_flag) {
-      EnrollUserHistoryOutput(hst_index::total_cooling_loss, hst_total_cooling_loss, "total_cooling_loss");
-    }
-    if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
-      EnrollUserHistoryOutput(hst_index::BH_gravity_work, hst_BH_gravity_work, "BH_gravity_work");
-    }
-    if (supernovae.SN_flag > 0) {
-      EnrollUserHistoryOutput(hst_index::SN_injected_energy, hst_SN_injected_energy, "SN_injected_energy");
-      EnrollUserHistoryOutput(hst_index::SN_injected_mass,   hst_SN_injected_mass,   "SN_injected_mass");
-      EnrollUserHistoryOutput(hst_index::SN_injected_number, hst_SN_injected_number, "SN_injected_number", UserHistoryOperation::min);  // 每个 MeshBlock 上都记录了同样的数字，所以取 min 就行
-    }
-    // 总角动量
-    EnrollUserHistoryOutput(hst_index::total_angular_momentum_x, hst_total_angular_momentum, "total_angular_momentum_x");
-    EnrollUserHistoryOutput(hst_index::total_angular_momentum_y, hst_total_angular_momentum, "total_angular_momentum_y");
-    EnrollUserHistoryOutput(hst_index::total_angular_momentum_z, hst_total_angular_momentum, "total_angular_momentum_z");
-
-    // multi-phase ISM 的 hst output
-    EnrollUserHistoryOutput(hst_index::ISM_hot_volume, hst_multiphase_ISM, "ISM_hot_volume");
-    EnrollUserHistoryOutput(hst_index::ISM_warm_volume, hst_multiphase_ISM, "ISM_warm_volume");
-    EnrollUserHistoryOutput(hst_index::ISM_cold_volume, hst_multiphase_ISM, "ISM_cold_volume");
-
-    EnrollUserHistoryOutput(hst_index::ISM_hot_mass,   hst_multiphase_ISM, "ISM_hot_mass");
-    EnrollUserHistoryOutput(hst_index::ISM_warm_mass,   hst_multiphase_ISM, "ISM_warm_mass");
-    EnrollUserHistoryOutput(hst_index::ISM_cold_mass,  hst_multiphase_ISM, "ISM_cold_mass");
-
-    EnrollUserHistoryOutput(hst_index::ISM_hot_thermal_energy, hst_multiphase_ISM, "ISM_hot_thermal_energy");
-    EnrollUserHistoryOutput(hst_index::ISM_warm_thermal_energy, hst_multiphase_ISM, "ISM_warm_thermal_energy");
-    EnrollUserHistoryOutput(hst_index::ISM_cold_thermal_energy, hst_multiphase_ISM, "ISM_cold_thermal_energy");
-
-    EnrollUserHistoryOutput(hst_index::ISM_hot_kinetic_energy, hst_multiphase_ISM, "ISM_hot_kinetic_energy");
-    EnrollUserHistoryOutput(hst_index::ISM_warm_kinetic_energy, hst_multiphase_ISM, "ISM_warm_kinetic_energy");
-    EnrollUserHistoryOutput(hst_index::ISM_cold_kinetic_energy, hst_multiphase_ISM, "ISM_cold_kinetic_energy");
-
-
-    // 把未 enroll 的 hst output 名字设为 "NULL"。否则目前的 athena_read.py 中的 hst 读取无法处理空的 header，各列会错位。
-    for (int n=0; n<nuser_history_output_; n++) {
-      if (user_history_func_[n] == nullptr) {
-        user_history_output_names_[n] = "NULL";
-      }
-    }
-  }
-
   // 手动给各个 Passive Scalar 场起名，输出到 info 下面的文件，从而指导后处理读取相应的 output （包括 hst 中的 %d-scalar）
   // 目前先 hard code，每当有更改时要手动更新。未来可以考虑从 input file 中读取。
   std::map<PassiveScalarIndex::PassiveScalarIndex, std::string> passive_scalar_names;
@@ -490,33 +561,7 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   { // 防止 idx 别名泄露
     namespace idx = RealUserMeshBlockDataIndex;
     AllocateRealUserMeshBlockDataField(idx::N_RealUserMeshBlockData);
-    if (R_in > 0.0) {  // 只有当存在 sink region 时启用这些数组
-      // 一些吸积相关的量，但由于跨 MPI 汇总，用自定义变量不方便，所以在每个 MeshBlock 上单独存储。这样还能在 restart 时自动储存恢复。
-      ruser_meshblock_data[idx::accreted_mass            ].NewAthenaArray(1);  // 黑洞吸积的总质量
-      ruser_meshblock_data[idx::accretion_rate           ].NewAthenaArray(1);  // 黑洞当前 cycle 的吸积率。
-      ruser_meshblock_data[idx::accreted_SN_tracer       ].NewAthenaArray(1);  // 黑洞吸积的 SN ejecta 的质量
-      ruser_meshblock_data[idx::accretion_rate_SN_tracer ].NewAthenaArray(1);  // 黑洞当前 cycle 的 SN Tracer 的吸积率。
-      ruser_meshblock_data[idx::accreted_energy          ].NewAthenaArray(1);  // 黑洞吸积的总能量
-      ruser_meshblock_data[idx::accreted_momentum        ].NewAthenaArray(3);  // 黑洞吸积的总动量
-      ruser_meshblock_data[idx::accreted_angular_momentum].NewAthenaArray(3);  // 黑洞吸积的总角动量
-    }
-    if (cooling.cooling_flag) {
-      ruser_meshblock_data[idx::total_cooling_loss       ].NewAthenaArray(1);
-    }
-    if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
-      ruser_meshblock_data[idx::BH_gravity_work].NewAthenaArray(1);  // SMBH 引力对流体做的功
-    }
-    if (supernovae.SN_flag > 0) {
-      ruser_meshblock_data[idx::SN_injected_energy].NewAthenaArray(1);  // SN 注入的总能量
-      ruser_meshblock_data[idx::SN_injected_mass  ].NewAthenaArray(1);  // SN 注入的总质量
-      ruser_meshblock_data[idx::SN_injected_number].NewAthenaArray(1);  // SN 注入的总个数
-    }
-
-    // 总角动量
-    ruser_meshblock_data[idx::total_angular_momentum].NewAthenaArray(3);
-    // multi-phase ISM
-    ruser_meshblock_data[idx::ISM].NewAthenaArray(MultiPhaseISMIndex::N_MultiPhaseISM, ISMPropertyIndex::N_ISMProperty);
-
+    hst->RequestMeshBlockData(this);
   }
 
   // 设定 UOV
@@ -564,68 +609,6 @@ void MeshBlock::UserWorkInLoop() {
   // 在这里做 cons2prim 的话，由于 MeshBlock 之间的通信在此之前，会造成数据不自洽，导致 MeshBlock 的边界上不对。因此这里不能 cons2prim
 
   // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
-
-  // 计算部分 hst output 所需要的数据
-  //TODO: 这里每个 cycle 都调用，但实际上只有输出 hst 的时候才需要。
-  // 有待改进速度，但目前这里占比只有 0.3%，暂时不管
-  // 几种方法：
-  // 1. 改为一个个单独的 hst 函数
-  // 2. 在这里判断是否需要输出，不需要则直接 return
-  // 3. 在第一个 hst 函数中做所有事，后续只需要读取
-  // 4. 自定义一个 UserWorkBeforeHstOutput，只在需要输出 hst 时调用
-  namespace idx = RealUserMeshBlockDataIndex;  // 简化名称。反正这里只用得到 RealUserMeshBlockData
-  ruser_meshblock_data[idx::total_angular_momentum].ZeroClear();  // 先清空，才能在遍历时累加
-  ruser_meshblock_data[idx::ISM].ZeroClear();
-  AthenaArray<Real> vol(ncells1);
-  for (int k=ks; k<=ke; k++) {
-    Real z = pcoord->x3v(k);
-    for (int j=js; j<=je; j++) {
-      Real y = pcoord->x2v(j);
-      pcoord->CellVolume(k, j, is, ie, vol);
-      // 这里似乎不能 SIMD，因为 reduction 比较复杂
-      for (int i=is; i<=ie; i++) {
-        Real x = pcoord->x1v(i);
-        Real cell_volume = vol(i);
-
-
-        // 动量 (用于计算角动量)
-        Vector momentum;
-        for (int l = 0; l < 3; ++l) {
-          momentum[l] = phydro->u(IM1+l,k,j,i) * cell_volume;
-        }
-
-        // 角动量
-        Vector angular_momentum = CrossProduct({x,y,z}, momentum);   //* 目前假设 BH 位于 {0,0,0}，否则 {x,y,z} 要减去 BH 的位置，而且速度也要改为相对速度！
-        for (int l = 0; l < 3; ++l) {
-          ruser_meshblock_data[idx::total_angular_momentum](l) += angular_momentum[l];
-        }
-
-
-        const Real rho = phydro->w(IDN,k,j,i);
-        const Real P   = phydro->w(IPR,k,j,i);
-        const Real E_thermal = P / (peos->GetGamma() - 1.0);
-        const Real E_k       = phydro->u(IEN,k,j,i) - E_thermal;
-        const Real T_cgs = Abundance::mu * P / rho * pmy_mesh->punit->code_temperature_mu_cgs;
-        
-
-        MultiPhaseISMIndex::MultiPhaseISMIndex phase;
-        if (T_hot_warm <= T_cgs) { // hot
-          phase = MultiPhaseISMIndex::hot;
-        } else if (T_warm_cold <= T_cgs and T_cgs < T_hot_warm ) { // warm
-          phase = MultiPhaseISMIndex::warm;
-        } else { // cold
-          phase = MultiPhaseISMIndex::cold;
-        }
-
-        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::volume) += cell_volume;
-        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::mass) += rho * cell_volume;
-        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::thermal_energy) += E_thermal * cell_volume;
-        ruser_meshblock_data[idx::ISM](phase, ISMPropertyIndex::kinetic_energy) += E_k * cell_volume;
-
-
-      }
-    }
-  }
 
   return;
 }

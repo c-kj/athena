@@ -6,6 +6,7 @@
 // 自定义的头文件
 #include "cooling.hpp"
 #include "my_outputs.hpp"
+#include "hst_output.hpp"
 #include "ckj_plugin.hpp"
 
 
@@ -231,8 +232,8 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
 
         const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
-        namespace idx = RealUserMeshBlockDataIndex;
-        pmb->ruser_meshblock_data[idx::total_cooling_loss](0) += -dE * cell_volume * ckj_plugin::source_term_weight;  // 历史累计的 cooling loss
+        auto hst_data = hst->get_proxy(pmb);
+        hst_data["total_cooling_loss"] += -dE * cell_volume * ckj_plugin::source_term_weight;  // 历史累计的 cooling loss
       }
     }
   }

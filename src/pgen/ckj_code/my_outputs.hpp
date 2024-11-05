@@ -16,48 +16,9 @@ namespace UOV {
 // 名字很长，但这样比较明确。引用时可以临时给个别名，比如 namespace idx = RealUserMeshBlockDataIndex;
 namespace RealUserMeshBlockDataIndex {
   enum RealUserMeshBlockDataIndex {
-    // 源项造成的改变量的历史记录
-    // 吸积量
-    accreted_mass,
-    accretion_rate,
-    accreted_SN_tracer,
-    accretion_rate_SN_tracer,
-    accreted_energy,
-    accreted_momentum,
-    accreted_angular_momentum,
-    // 能量
-    total_cooling_loss,
-    BH_gravity_work,
-    // SN 注入量
-    SN_injected_energy,
-    SN_injected_mass,
-    SN_injected_number,
-    // 总角动量
-    total_angular_momentum,
-    // multi-phase ISM 的分析
-    ISM,
+    hst,  // 用于 hst 机制
     // 其他 ...
     N_RealUserMeshBlockData  // DataField 的个数，用于 AllocateUserOutputVariables。必须放在 enum 的最后
-  };
-}
-
-namespace MultiPhaseISMIndex {
-  enum MultiPhaseISMIndex {
-    hot,
-    warm,
-    cold,
-
-    N_MultiPhaseISM
-  };
-}
-namespace ISMPropertyIndex {
-  enum ISMPropertyIndex {
-    volume,
-    mass,
-    thermal_energy,
-    kinetic_energy,
-
-    N_ISMProperty
   };
 }
 
