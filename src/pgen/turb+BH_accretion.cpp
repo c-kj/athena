@@ -123,6 +123,8 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+  
+  const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
   Real BH_gravity_work = 0.0;  // 用于在 SIMD 循环中累计
 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -154,7 +156,7 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
             Real dE = - GM_BH*(x*vx + y*vy + z*vz)/r3 * rho * dt;
             cons(IEN,k,j,i) += dE; // 根据动量的改变，相应地改变动能。内能目前不变。
             //? 这里是否需要考虑把平方项补偿上去？有待测试。
-            BH_gravity_work += dE * cell_volume * ckj_plugin::source_term_weight;  // 记录引力做的功
+            BH_gravity_work += dE * cell_volume * source_weight;  // 记录引力做的功
           }
         }
 
@@ -207,6 +209,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
   }
 
   Real mesh_dt = pmb->pmy_mesh->dt;
+  const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
   
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     Real z = pmb->pcoord->x3v(k);
@@ -224,7 +227,6 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           // 记录被 sink region 吸收的物理量：质量、角动量、SN tracer。
           //* 注意这里不要用 prim，而是用 cons，因为 prim 尚未更新，是上一步结尾的值！而且要先记录这些量的改变量，再修改 cons。
           const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);    //FUTURE 改用 pmb->pcoord->CellVolume(k,j,pmb->is,pmb->ie,vol); ？ 这样可以利用 OpenMP SIMD 一次算一行。但如果不是性能热点，可能没必要。其他 pgen 里用的 vol 长度都是 pmb->ncells1，但这个是包含了 2*NGHOST 的，感觉 pmb->blocksize->nx1 就够了，不知道为什么。
-          const Real source_weight = ckj_plugin::source_term_weight;
           const Real dens_new = std::min(rho_sink, dens);  // 使用 min，如果密度低于 rho_sink，则仍保持其密度，而非抬升到 rho_sink。
           //* 考虑到有强风（比如 SN shock）吹过时，sink 周围的径向速度可能是正的。尽管 sink 内速度为 0，但由于边界值重建，可能产生向外的 flux，导致 sink 内密度减小！
           // 不过，由于 rho_sink 很低，所以即便有强风，也不会向外漏出多少质量。而且一旦吸积，dens 比 rho_sink 低的部分就会很快被填平。

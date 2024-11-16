@@ -268,8 +268,9 @@ void Supernovae::WriteInfoCSV(const std::string &filename) const {
   file << "Total number: " << supernova_list.size() << "\n";
   // 写入 header
   file << "=========================================================\n";
-  file << "t, x, y, z, v_x, v_y, v_z, energy_density, number_density\n";
+  file << "t, x, y, z, v_x, v_y, v_z, energy_density, mass_density\n";
 
+  //TODO 让有无负号都能对齐
   // 设置浮点数输出格式，确保不丢失精度
   file << std::fixed << std::setprecision(std::numeric_limits<Real>::max_digits10);
 

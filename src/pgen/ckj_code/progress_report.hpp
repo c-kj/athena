@@ -51,7 +51,7 @@ inline ProgressReport::ProgressReport(Mesh *pmesh, ParameterInput *pin):
 {
   if (Globals::my_rank == 0) {
     // 初始化 last_report。这里不直接使用初始化列表，是为了让名称对应得更加清晰
-    last_report.t = std::chrono::high_resolution_clock::now();
+    last_report.t = t_start;
     last_report.time = pmesh->time;
     last_report.ncycle = pmesh->ncycle;
   

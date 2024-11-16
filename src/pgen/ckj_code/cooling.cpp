@@ -171,6 +171,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
                         const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
                         AthenaArray<Real> &cons_scalar) {
 
+  const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
   const Real gamma = pmb->peos->GetGamma(); // 只适用于 adiabatic EoS 的情况，如果是 GENERAL_EOS，则会直接报错。若要使用 GENERAL_EOS，所有调用 gamma 的地方都需要修改！
 
   //? 这里是否需要避免黑洞内被 Cooling 影响？（至于 R_out 之外应该不用避免 Cooling，否则压强反而不正确了）
@@ -233,7 +234,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
 
         const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
         auto hst_data = hst->get_proxy(pmb);
-        hst_data["total_cooling_loss"] += -dE * cell_volume * ckj_plugin::source_term_weight;  // 历史累计的 cooling loss
+        hst_data["total_cooling_loss"] += -dE * cell_volume * source_weight;  // 历史累计的 cooling loss
       }
     }
   }

@@ -64,5 +64,8 @@ meshtest.dat
 # compiled doxygen file
 doc/doxy*
 
+
+# CKJ 添加的：
+git_commit_message.txt
 # clangd index
 .cache/clangd/index
