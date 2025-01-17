@@ -66,6 +66,12 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+
+  // 在自定义源项的开头 CheckCell
+  if (debug >= DEBUG_Cell) {
+    CheckCell(false, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
   // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
   // 但是，第一个 stage 对 cons 的更新会进入第二个 stage 的 prim，
   if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::InSourceTerm) {
@@ -89,6 +95,11 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
   // SMBH Sink Region 的处理，需要放在最后，因为记录吸积量依赖于 cons。
   if (R_in > 0.0) {
     SMBH_sink(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  // 在自定义源项的结尾 CheckCell
+  if (debug >= DEBUG_Cell) {
+    CheckCell(true, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
 }
@@ -180,15 +191,6 @@ void SMBH_grav(MeshBlock *pmb, const Real time, const Real dt,
   auto hst_data = hst->get_proxy(pmb);
   hst_data["BH_gravity_work"] = BH_gravity_work;  // 用于输出到 hst
   
-  // 根据 debug 信息发现，自定义源项在每个时间步会被 call 两次（应该是取决于时间积分器）。
-  //* 对于 VL2：第一次是在时间步开始时，传入函数的 dt 为真实 dt 的 1/2（预报步）；另一次在时间步的一半处，传入的是完整的 dt（校正步）。
-  // 对于那些 *dt 的增量更新操作不必考虑，但对于直接附加的量（SN 爆炸能量），需要专门处理。
-  if (debug >= DEBUG_Mesh && pmb->gid == 0 ){
-    printf_and_save_to_stream(debug_stream, 
-    "DEBUG_Mesh: Source Term is called at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 
-    time, pmb->pmy_mesh->time, dt, pmb->pmy_mesh->dt);
-  }
-
   return;
 }
 
@@ -284,6 +286,40 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
 }
 
 
+void CheckCell(bool after_source, MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    Real z = pmb->pcoord->x3v(k);
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      Real y = pmb->pcoord->x2v(j);
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        Real x = pmb->pcoord->x1v(i);
+        Real r = std::sqrt(x*x + y*y + z*z);
+
+        for (std::string check: {"nan", "negative"}) {  // 遍历检查项
+          for (std::string vars_str: {"cons", "prim"}) {
+            for (int n=0; n <= 4; ++n){
+              auto& vars = vars_str == "cons" ? cons : prim;
+              std::string position = after_source ? "after" : "before";
+              Real value = vars(n,k,j,i);
+              
+              if (check == "nan" and std::isnan(value) 
+              or (check == "negative" and (n == IDN or n == IPR) and value < 0.0)) {
+                debug_stream << position << ": " << check << " found in " << vars_str << "("<< n << "," << k << "," << j << "," << i << "), "
+                              << "value = " << value << ", ncycle = " << pmb->pmy_mesh->ncycle << ", time = " << time << ", dt = " << dt << ", stage = " << ckj_plugin::current_stage
+                               << ", (x,y,z,r) = (" << x << "," << y << "," << z << "," << r << ")\n";
+              }
+            }
+          }
+        }
+        
+      }
+    }
+  }
+}
+
 
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
 Real MyTimeStep(MeshBlock *pmb) {
@@ -311,6 +347,8 @@ void HSTManager::register_all_entries() {
   add_entry("num_MeshBlocks");
   add_entry("dt_hyperbolic", UserHistoryOperation::min);
   add_entry("dt_user", UserHistoryOperation::min);
+
+  //TODO 改为用循环批量添加
 
   // 黑洞吸积量
   if (R_in > 0.0) {    // 只有当存在 sink region 时启用
@@ -420,7 +458,7 @@ void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
           phase = "hot";
         } else if (T_warm_cold <= T_cgs and T_cgs < T_hot_warm ) { // warm
           phase = "warm";
-        } else { // cold
+        } else { // cold  //BUG 如果是 nan 怎么算？目前这样算成 cold 了。但是如果 phase 是三者之外的某个字符串，那么后续 hst_data 索引会报错！可能用 break？
           phase = "cold";
         }
 
@@ -428,6 +466,17 @@ void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
         hst_data["ISM_" + phase + "_mass"] += rho * cell_volume;
         hst_data["ISM_" + phase + "_thermal_energy"] += E_thermal * cell_volume;
         hst_data["ISM_" + phase + "_kinetic_energy"] += E_k * cell_volume;
+
+        //TODO 分不同的 R 内进行统计。目前只是草稿。
+        // Real r = std::sqrt(x*x + y*y + z*z);
+        // for (Real R: {1,2,3}) {
+        //   if (r < R) {
+        //     hst_data["ISM_" + phase + "_volume_r<" + std::to_string(R)] += cell_volume;
+        //     hst_data["ISM_" + phase + "_mass_r<" + std::to_string(R)] += rho * cell_volume;
+        //     hst_data["ISM_" + phase + "_thermal_energy_r<" + std::to_string(R)] += E_thermal * cell_volume;
+        //     hst_data["ISM_" + phase + "_kinetic_energy_r<" + std::to_string(R)] += E_k * cell_volume;
+        //   }
+        // }
       }
     }
   }
@@ -621,10 +670,6 @@ void MeshBlock::UserWorkInLoop() {
 void Mesh::UserWorkInLoop() {
   // 在时间步内调用 Mesh::UserWorkInLoop 时，步长内主要的演化已经完成，但 time 还未更新。
   // 所以「时间步结尾的时间」要加上 dt
-  Real end_time = time + dt; 
-  if (debug >= DEBUG_TimeStep) {
-    printf_and_save_to_stream(debug_stream, "DEBUG_TimeStep: Mesh::UserWorkInLoop is called at end_time = %f \n", end_time);
-  }
 
   if (progress_report->is_time_to_report()) {
     progress_report->report();

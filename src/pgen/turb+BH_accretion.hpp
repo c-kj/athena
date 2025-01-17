@@ -81,7 +81,11 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar);
 
-
+// 用于检查单个格点的函数，检查是否有 nan 或负数的情况。只有 debug >= DEBUG_Cell 时才会调用。
+void CheckCell(bool after_source, MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
 
 
 
