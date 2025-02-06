@@ -8,11 +8,15 @@
 #include "my_outputs.hpp"
 #include "hst_output.hpp"
 #include "ckj_plugin.hpp"
+#include "utils.hpp"
 
 
-Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) {  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
+Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): 
+  punit(pmy_mesh->punit),
+  gamma(pin->GetReal("hydro", "gamma")) // 从 pin 中读取 gamma 的值。这和 EquationOfState 类中初始化的方式是一致的。
+{  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
 
-  //TODO 要不要用初始化列表？
+  //FUTURE 要不要用初始化列表？
   // 使用初始化列表的主要好处：可以初始化 const 和 引用 类型的成员变量
 
   // 配置 CoolingModel & 是否开启 cooling
@@ -32,18 +36,43 @@ Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) { 
 
   // 配置 integrator
   integrator = pin->GetOrAddString("cooling", "integrator", "Euler");
-  implicit = pin->GetOrAddBoolean("cooling", "implicit", true);
   CFL_cooling = pin->GetOrAddReal("cooling", "CFL_cooling", 1.0); 
   if (CFL_cooling <= 0.0) {throw std::invalid_argument("CFL_cooling must be positive!");}
 
-  // 配置 RootFinder
-  max_iter = pin->GetOrAddInteger("cooling", "max_iter", 10);  // 默认 10 次迭代，应该足够了。有 rel_tol 存在，一般应该不至于需要 10 次。
-  rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);     //? 多少合适？
-  abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 0);        // 默认绝对容差为 0，因为这个值不太好把握，容易造成一次迭代都没有就直接退出。
+  if (integrator == "Townsend") {
+    implicit = pin->GetOrAddBoolean("cooling", "implicit", false); // 在 integrator 为 Townsend 时，implicit 的默认值是 false
+    if (implicit) {throw std::invalid_argument("Townsend integrator cannot be implicit!");} // 读取 implicit，确认其要么是 false，要么没指定
 
-  // 配置 Subcycle
-  CFL_subcycle = pin->GetOrAddReal("cooling", "CFL_subcycle", 1.0);
-  subcycle_adaptive = pin->GetOrAddBoolean("cooling", "subcycle_adaptive", true);
+    bool cooling_model_analytic = true;  //TODO 目前只实现了 cooling_model 为解析函数的情况
+    if (cooling_model_analytic) { // cooling_model 为解析函数的情况：为了初始化 Townsend，需要在 log10_T_array 上采样
+      std::string log10_T_range_str = pin->GetString("cooling", "log10_T_range");  // 这种情况下必须输入 log10_T_range
+      std::array<Real,3> log10_T_range = read_array<3>(log10_T_range_str, ':');  // 从字符串中解析出 log10_T_range，以 ':' 分隔，应该是一个长度为 3 的 array
+      Real log10_T_min = log10_T_range[0], log10_T_max = log10_T_range[1], log10_T_step = log10_T_range[2];
+      
+      std::vector<Real> log10_T_array = {};
+      for (Real log10_T = log10_T_min; log10_T <= log10_T_max; log10_T += log10_T_step) {
+        log10_T_array.push_back(log10_T);
+      }
+
+      auto func = [this](Real T_cgs){return model->CoolingFunction(T_cgs);};  // 非静态成员函数由于涉及状态，不能直接作为 std::function 传入，因此用 lambda 包装一下
+      Townsend = std::unique_ptr<TownsendCooling>(new TownsendCooling(this, log10_T_array, func));  // 初始化 TownsendCooling 对象
+
+    } else {  //TODO 如果 cooling_model 是由数据表给出的，则直接用数据点
+      
+    }
+
+  } else {  // 常规的 integrator （非 Townsend）
+    implicit = pin->GetOrAddBoolean("cooling", "implicit", true);
+
+    // 配置 RootFinder
+    max_iter = pin->GetOrAddInteger("cooling", "max_iter", 10);  // 默认 10 次迭代，应该足够了。有 rel_tol 存在，一般应该不至于需要 10 次。
+    rel_tol = pin->GetOrAddReal("cooling", "rel_tol", 1e-6);     //? 多少合适？
+    abs_tol = pin->GetOrAddReal("cooling", "abs_tol", 0);        // 默认绝对容差为 0，因为这个值不太好把握，容易造成一次迭代都没有就直接退出。
+
+    // 配置 Subcycle
+    CFL_subcycle = pin->GetOrAddReal("cooling", "CFL_subcycle", 1.0);
+    subcycle_adaptive = pin->GetOrAddBoolean("cooling", "subcycle_adaptive", true);
+  }
 
   // 配置 Limiter
   limiter_on = pin->GetOrAddBoolean("cooling", "limiter_on", false);  // cooling 的结尾是否要用 limiter 限制
@@ -57,13 +86,14 @@ Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): punit(pmy_mesh->punit) { 
 // 计算 Cooling Rate (in code unit)，即 d(能量密度) / dt。//* 注意：这里 Cooling Rate 是正数！
 Real Cooling::CoolingRate(const Real rho, const Real P) const {
   Real T_cgs = mu * P / rho * punit->code_temperature_mu_cgs;
+  constexpr Real mu_H = 1.0;  // 氢的原子量
 
   // 计算数密度 n
   Real rho_cgs = rho * punit->code_density_cgs;
-  //TODO 检查这里的公式对吗？
+  
   // Real n_cgs = rho_cgs / (mu * Constants::hydrogen_mass_cgs); 
   Real n_e_cgs = rho_cgs / (mu_e * Constants::hydrogen_mass_cgs);
-  Real n_H_cgs = rho_cgs * X_H / Constants::hydrogen_mass_cgs;  //? 这么算适用于 Draine 2011 吗？ 适用于其他 Cooling Function 吗？
+  Real n_H_cgs = rho_cgs * X_H / (mu_H * Constants::hydrogen_mass_cgs);  //? 这么算适用于 Draine 2011 吗？ 适用于其他 Cooling Function 吗？
   
   //? 使用 n_e * n_H 还是 n * n ? 这取决于文献给出 Cooling Function 时如何做归一化。
   Real cooling_rate_code = n_e_cgs * n_H_cgs * model->CoolingFunction(T_cgs) / (punit->code_energydensity_cgs /  punit->code_time_cgs); 
@@ -81,30 +111,32 @@ Real Cooling::CoolingTimeScale(const Real E_thermal, const Real cooling_rate) {
 }
 
 Real Cooling::CoolingTimeStep(MeshBlock *pmb) const {
-  Real gm1 = (pmb->peos->GetGamma() - 1.0);
-  Real cooling_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数
+  Real t_cool_min = std::numeric_limits<Real>::max();  // 各点的 cooling timescale (t_cool) 中的最小值。先初始化为一个很大的数
+
   for (int k=pmb->ks; k<=pmb->ke; ++k) {
     for (int j=pmb->js; j<=pmb->je; ++j) {
-// #pragma omp simd reduction(min:cooling_dt)  // SIMD 矢量化加速。似乎因为内部调用太复杂无法内联，目前无法矢量化。目前不知道这里是不是性能热点，暂时不用。
+// #pragma omp simd reduction(min:t_cool_min)  // SIMD 矢量化加速。似乎因为内部调用太复杂无法内联，目前无法矢量化。目前不知道这里是不是性能热点，暂时不用。
       for (int i=pmb->is; i<=pmb->ie; ++i) {
+        // 这里本来应该用 cons 计算 E_thermal 来计算 t_cool，但因为已经做了 cons2prim，所以用 prim 也一样，还能避免负值。
         Real rho = pmb->phydro->w(IDN,k,j,i);
         Real P = pmb->phydro->w(IPR,k,j,i); 
 
         //? 这里先计算 dt_cooling ，后续又调用 CoolingRate，重复计算了。可以考虑优化？但如果是 RK4 之类的积分器，其实总共要调用 4 次（各不同），可能意义不大？
         Real cooling_rate = CoolingRate(rho, P);
-        Real E_thermal = P / gm1;
-        Real dt = CFL_cooling * CoolingTimeScale(E_thermal, cooling_rate);   //calculate your own time step here
+        Real E_thermal = P / (gamma - 1);
+        Real t_cool = CoolingTimeScale(E_thermal, cooling_rate);  // 单点的 cooling timescale
 
-        cooling_dt = std::min(cooling_dt, dt);
+        t_cool_min = std::min(t_cool_min, t_cool);
       }
     }
   }
-  return cooling_dt;
+  return CFL_cooling * t_cool_min; // 整个 MeshBlock 的 cooling_dt = 安全系数 * 最小的 cooling timescale
 }
 
 // 求解 dy/dt = RHS(y)，给出 dy
 // 目前这里的 y 指代的是 E_thermal
 // 这里假定了 RHS 不是 t 的函数。对于 Cooling 来说，总是成立的。
+//FUTURE 为了追求性能，可以考虑用模板代替 std::function，避免类型擦除的开销
 Real Cooling::Integrator(const std::function<Real(Real)>& RHS, Real y0, Real dt) const {
   Real dy = 0.0;
   if (!implicit) { // 显式 integrator
@@ -172,45 +204,52 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
                         AthenaArray<Real> &cons_scalar) {
 
   const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
-  const Real gamma = pmb->peos->GetGamma(); // 只适用于 adiabatic EoS 的情况，如果是 GENERAL_EOS，则会直接报错。若要使用 GENERAL_EOS，所有调用 gamma 的地方都需要修改！
 
   //? 这里是否需要避免黑洞内被 Cooling 影响？（至于 R_out 之外应该不用避免 Cooling，否则压强反而不正确了）
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     for (int j = pmb->js; j <= pmb->je; ++j) {
 // #pragma omp simd // SIMD 矢量化加速。如果涉及相邻 cell 的平均，SIMD 可能会有问题。目前不知道这里是不是性能热点，暂时不用。循环内部太复杂，很可能无法矢量化。
       for (int i = pmb->is; i <= pmb->ie; ++i) {
+        Real dE = 0.0;  // 用于最后返回的 dE（整个 SourceTerm 的 dt 内，当前 cell 中的热能密度变化量）。//* 注意：E 是能量密度，而非能量！而且 dE < 0 代表 cooling ！
 
-        Real rho, P;
+        Real rho, P, E_thermal;
         if (use_prim_in_cooling) {  // 使用 prim 或 cons 来计算 rho、P
           rho = prim(IDN,k,j,i); 
           P = prim(IPR,k,j,i);
+          E_thermal = P / (gamma - 1.0);
         } else {
           rho = cons(IDN,k,j,i); 
-          P = (gamma - 1.0) * (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+          E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+          P = (gamma - 1.0) * E_thermal;
         }
 
-        auto RHS = [gamma,rho,this](Real E_thermal) {
-          Real P = (gamma - 1.0) * E_thermal;
-          return - CoolingRate(rho, P);  // 注意这里是负号，因为 CoolingRate 是正数，而 dE/dt = RHS 是负数
-        };
+        if (integrator == "Townsend") {
+          Real T_old_cgs = P / rho * mu * punit->code_temperature_mu_cgs;
+          Real T_new_cgs = Townsend->New_T(T_old_cgs, rho, dt);
+          Real dT_cgs = T_new_cgs - T_old_cgs;
+          dE = dT_cgs * rho / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
 
-        Real E_thermal = P / (gamma - 1.0);
-        //BUG 这里似乎不应该用 prim 来算，而是从 cons 中算出 E_thermal，这样才是 Limiter 所需要的「当前剩下的 E_thermal」。对于 CoolingTimescale 的计算怎么办？
+        } else {  // 如果不是 Townsend integrator，则用普通的 integrator 方法，进行 subcycle
 
-
-        Real dE = 0.0;  // 用于最后返回的 dE （整个 SourceTerm 的 dt 内，当前 cell 中的热能密度变化量）。//* 注意：E 是能量密度，而非能量！而且 dE < 0 代表 cooling ！
-        Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
-        Real t_subcycle = 0.0;  // 从 0 增加到 dt
-        Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
-        while (t_subcycle < dt) { // 进入子循环
-          if (subcycle_adaptive || t_subcycle == 0.0) {  // 如果 subcycle_adaptive 则每个 subcycle 都重新计算 dt_subcycle，否则只在第一个子循环计算一次
-            dt_subcycle = CoolingTimeScale(E_thermal, CoolingRate(rho, P)) * CFL_subcycle; 
+          auto RHS = [rho,this](Real E_thermal) {
+            Real P = (gamma - 1.0) * E_thermal;
+            return - CoolingRate(rho, P);  // 注意这里是负号，因为 CoolingRate 是正数，而 dE/dt = RHS 是负数
+          };
+          // Subcycle 子循环，求得 dE。可以考虑拎出来作为一个成员函数
+          Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
+          Real t_subcycle = 0.0;  // 从 0 增加到 dt
+          Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
+          while (t_subcycle < dt) { // 进入子循环
+            if (subcycle_adaptive || t_subcycle == 0.0) {  // 如果 subcycle_adaptive 则每个 subcycle 都重新计算 dt_subcycle，否则只在第一个子循环计算一次
+              dt_subcycle = CoolingTimeScale(E_thermal, CoolingRate(rho, P)) * CFL_subcycle;   //BUG 这里 E_thermal 和 P 都没有在子循环中更新！dt_subcycle 其实没有变化！
+            }
+            if (t_subcycle + dt_subcycle > dt) {dt_subcycle = dt - t_subcycle;}  // 限制 dt_subcycle 使得 t_subcycle 不能超过 dt，使最后一个子循环结束时 t_subcycle == dt。同时也限制了 dt_subcycle <= dt
+            dE_subcycle = Integrator(RHS, E_thermal+dE, dt_subcycle);
+            dE += dE_subcycle;
+            t_subcycle += dt_subcycle;
           }
-          if (t_subcycle + dt_subcycle > dt) {dt_subcycle = dt - t_subcycle;}  // 限制 dt_subcycle 使得 t_subcycle 不能超过 dt，使最后一个子循环结束时 t_subcycle == dt。同时也限制了 dt_subcycle <= dt
-          dE_subcycle = Integrator(RHS, E_thermal+dE, dt_subcycle);
-          dE += dE_subcycle;
-          t_subcycle += dt_subcycle;
         }
+
 
         if (limiter_on) {
           // dE = - std::min(std::abs(dE), E_thermal * 0.1);  //TEMP 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
@@ -218,6 +257,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           // 限制最低温度
           Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
           // 避免 cooling 到 floor 以下，如果本来就在 floor 以下则不管（膨胀冷却、高马赫数伪冷却）
+          //* 这里不管前面用的是 prim 还是 cons，都使用 cons 来计算「剩余」的 E_thermal，因为 cons 才是被源项改变的量。
           Real E_thermal_cons = use_prim_in_cooling ? (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho) : E_thermal; // 如果前面已经用了 cons 来计算 E_thermal，就不用再算一遍了
           Real E_thermal_minus_floor = E_thermal_cons - E_thermal_floor;    // 当前 E_thermal 与 floor 的差值。不论前面的计算用 prim 还是 cons，这里都用 cons，因为这才是要被改变的量。
           if (E_thermal_minus_floor > 0 and dE < - E_thermal_minus_floor) { // 如果 E_thermal 高于 floor 且 cooling 会把 E_thermal 降到 floor 以下

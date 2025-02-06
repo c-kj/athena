@@ -10,6 +10,9 @@
 
 // 自定义的头文件
 #include "ckj_code.hpp"
+#include "Townsend.hpp"
+
+struct TownsendCooling; // forward declaration
 
 // CoolingModel 是各种冷却函数的基类
 //* 把 CoolingModel 写成类，本来是为了实现对应的 Jacobian。但目前 Jacobian 并没有用到，所以也没啥意义……
@@ -77,12 +80,15 @@ struct Cooling {
 
   // Cooling SourceTerm 的注入方式
   SourceTermPosition source_term_position;
-  bool use_prim_in_cooling;
+  bool use_prim_in_cooling;  // 使用 prim 或 cons 来计算 rho、P。如果用 prim，相当于一阶 Euler 积分；如果用 cons，相当于一阶 operator-splitting
 
   // Integrator
   std::string integrator;
   bool implicit;
   Real CFL_cooling;
+
+  // Townsend cooling 机制的对象
+  std::unique_ptr<TownsendCooling> Townsend;
 
   // RootFinder
   int max_iter;
@@ -96,7 +102,11 @@ struct Cooling {
   bool limiter_on;
   Real T_floor_cgs;
 
-  // Real gamma; //* 不用 gamma，以兼容 General EoS
+  // 检查 EOS 是 adiabatic 的，这样才有良定义的 gamma
+  static_assert(NON_BAROTROPIC_EOS == 1, "### ERROR: Cooling 类目前只支持 NON_BAROTROPIC_EOS！因为要用到内能。");
+  static_assert(GENERAL_EOS == 0, "### ERROR: Cooling 类目前不支持 GENERAL_EOS！因为要用到 gamma (=5/3)。");  // 若要使用 GENERAL_EOS，所有调用 gamma 的地方都需要修改！
+  Real gamma;
+  //FUTURE 目前这里不能声明为 const，否则需要在构造函数中初始化，就没法直接拷贝构造了。等把 cooling 改为用 unique_ptr 之后，可以改为 const。
 
   // 关于各种类粒子的丰度，所需要的参数，从 Abundance 类中获取。目前设为 static constexpr。
   static constexpr Real mu = Abundance::mu;

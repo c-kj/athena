@@ -175,12 +175,15 @@ M_BH =                                       # 用于在 M_BH 未设定 or 为 0
 
 
 <cooling>
-cooling_model        = Draine_2011           # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, Draine_2011_cutoff, #TODO
 source_term_position = InSourceTerm          # InSourceTerm, AfterSourceTerm, UserWorkInLoop
 use_prim_in_cooling  = true                  # true: use prim
 
+# Cooling curve
+cooling_model = Draine_2011_cutoff           # Cooling Function (Emissivity) 所使用的模型。可选值: none, Draine_2011, Draine_2011_cutoff, #TODO
+log10_T_range = 3:8:0.01                     # integrator = Townsend 且 cooling_model 采用解析函数时，必须指定这个参数；采用数据点时，这个参数将被忽略。格式为 log10(T_min):log10(T_max):d(log10T)，以 : 分隔。
+
 # Integrator
-integrator   = Euler                         # 可选值: Euler, RK4, ...
+integrator   = Euler                         # 可选值: Euler, RK4, Townsend, ... 。若选择 Townsend，大多数下面的参数将无效，无需指定。
 implicit     = true                          # 若为 true 则使用隐式求解器，否则使用显式求解器。
 CFL_cooling  = 0.5                           # Cooling TimeStep 与 Cooling Timescale 的比值，dt_user = CFL_cooling * dt_cooling
 
