@@ -76,7 +76,7 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
   std::vector<Real> time_list;
   std::vector<Point> center_list;
   //FUTURE 目前对速度的处理只是统一的平动速度。以后可以考虑加入随机速度、Kepler 速度。
-  Vector velocity = read_array(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"));
+  Vector velocity = read_array<3>(pin->GetOrAddString(block_name, "SN_" + i_str + "_velocity", "0,0,0"), ',');
 
 
   std::string event_type = pin->GetOrAddString(block_name, "SN_" + i_str + "_event_type", "single_point"); // 默认是 single_point，即只有一个位置
@@ -161,7 +161,7 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
     time_list = read_vector(pin->GetString(block_name, "SN_" + i_str + "_time"));  // 读取 time_list，可能有多个，也可能只有一个。
 
     std::string center_str = pin->GetOrAddString(block_name, "SN_" + i_str + "_center", "0,0,0"); // 用于后续的 fallback
-    Point center = read_array(center_str);
+    Point center = read_array<3>(center_str, ',');
     center_list.assign(time_list.size(), center);  // 把 center_list 初始化为 event_num 个相同的 center
 
   } else if (event_type == "from_file") { // 从文件中读取

@@ -94,7 +94,7 @@ std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_an
     level_name = "level_" + std::to_string(i);
     if (pin->DoesParameterExist(block_name, point_name)) {
       // 把逗号分隔的三个数字读入 point 数组
-      point = read_array(pin->GetString(block_name, point_name));
+      point = read_array<3>(pin->GetString(block_name, point_name), ',');
       level = pin->GetOrAddInteger(block_name, level_name, default_level);   // 把 level_i 读入 level
       // 把 point 和 level 添加到 point_list 和 level_list 中
       point_list.push_back(point);
@@ -107,30 +107,14 @@ std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_an
   return std::make_tuple(point_list, level_list);    // 返回一个 tuple
 }
 
-// 读取 3 个数组成的列表，用于 Point、Vector 等
-std::array<Real, 3> read_array(std::string str, char delimiter) {
-  int size = 3;
-  std::array<Real, 3> array;
-  std::vector<Real> vec = read_vector(str, delimiter);
-  if (vec.size() != size) { // 如果解析出的列表长度与 array 所要求的长度不符，抛出异常
-    throw std::invalid_argument("The input string should contain exactly 3 numbers separated by " + std::string(1, delimiter));
-  }
-  for (int j = 0; j < size; j++) {
-    array[j] = vec[j];
-  }
-  return array;
-}
-
 //TODO 可以考虑用 src/utils/string_utils.cpp 中的 split 函数重写？也许功能更强一些。
-// 从字符串中读取数字列表
-// 能解析 "1"、"1,2,3"、"1,2,3,"，但不能 "1,2,3,,"
 std::vector<Real> read_vector(std::string str, char delimiter) {
-  std::string num;
+  std::string token;
   std::vector<Real> vec;
   
   std::stringstream ss(str);
-  while (std::getline(ss, num, delimiter)) {
-    vec.push_back(std::stod(num));
+  while (std::getline(ss, token, delimiter)) {
+    vec.push_back(std::stod(token));
   }
   return vec;
 }

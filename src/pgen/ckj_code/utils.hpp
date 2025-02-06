@@ -43,8 +43,23 @@ void writeMapToFile(const std::map<K, V>& map, const std::string& filename) {
 
 std::tuple<std::vector<std::array<Real, 3>>, std::vector<int>> get_AMR_points_and_levels(ParameterInput *pin);
 
-std::array<Real, 3> read_array(std::string str, char delimiter=',');
+// 从字符串中读取数字列表
+// 能解析 "1"、"1,2,3"、"1., 2.0, .3,"，但不能 "1,2,3,,"
 std::vector<Real> read_vector(std::string str, char delimiter=',');
+
+// 从字符串中读取数字 array，用于 Point、Vector 等
+template <size_t N>
+std::array<Real, N> read_array(const std::string& str, char delimiter=',') {
+  std::array<Real, N> arr;
+  std::vector<Real> vec = read_vector(str, delimiter);
+  if (vec.size() != N) {
+    throw std::invalid_argument("The input string should contain exactly " + std::to_string(N) + " numbers separated by " + delimiter);
+  }
+  for (size_t i = 0; i < N; i++) {
+    arr[i] = vec[i];
+  }
+  return arr;
+}
 
 
 std::string format_duration(const std::chrono::duration<double>& duration);
