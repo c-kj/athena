@@ -69,7 +69,7 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
 
   // 在自定义源项的开头 CheckCell
   if (debug >= DEBUG_Cell) {
-    CheckCell(false, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+    CheckCell("before_source", pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
   // CoolingSourceTerm 与其它 SourceTerm 的顺序先后应该并无影响，因为反正都是根据这一步未修改的 prim 去更新 cons。而且 CoolingTimeStep 也是在这一步开始前就计算好的。
@@ -99,7 +99,7 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
 
   // 在自定义源项的结尾 CheckCell
   if (debug >= DEBUG_Cell) {
-    CheckCell(true, pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+    CheckCell("after_source", pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
 }
@@ -286,10 +286,21 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
 }
 
 
-void CheckCell(bool after_source, MeshBlock *pmb, const Real time, const Real dt,
+void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar) {
+  Units* punit = pmb->pmy_mesh->punit;
+  Real gamma = pmb->peos->GetGamma();
+  Real mu = Abundance::mu;
+
+  int ncycle = pmb->pmy_mesh->ncycle;
+  static int first_bug_ncycle = -1;
+
+  constexpr int var_E_thermal = IPR+1;
+  constexpr int var_T = IPR+2;
+
+  // 遍历每个 cell
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     Real z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
@@ -298,20 +309,59 @@ void CheckCell(bool after_source, MeshBlock *pmb, const Real time, const Real dt
         Real x = pmb->pcoord->x1v(i);
         Real r = std::sqrt(x*x + y*y + z*z);
 
+        std::stringstream cell_issues;
+        bool has_issues = false;
+
         for (std::string check: {"nan", "negative"}) {  // 遍历检查项
           for (std::string vars_str: {"cons", "prim"}) {
-            for (int n=0; n <= 4; ++n){
-              auto& vars = vars_str == "cons" ? cons : prim;
-              std::string position = after_source ? "after" : "before";
-              Real value = vars(n,k,j,i);
-              
+
+            // 根据 cons 还是 prim 计算 E_thermal、T_cgs 等变量
+            auto& vars = vars_str == "cons" ? cons : prim;
+            Real rho, P, E_thermal;
+            if (vars_str == "prim") {  // 使用 prim 或 cons 来计算 rho、P
+              rho = prim(IDN,k,j,i); 
+              P = prim(IPR,k,j,i);
+              E_thermal = P / (gamma - 1.0);
+            } else {
+              rho = cons(IDN,k,j,i); 
+              E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+              P = (gamma - 1.0) * E_thermal;
+            }
+
+            for (int n=0; n <= var_T; ++n) { // 遍历每个变量
+              Real value;
+              if (n <= IPR) {
+                value = vars(n,k,j,i);
+              } else if (n == var_E_thermal) {
+                value = E_thermal;
+              } else if (n == var_T) {
+                Real T_cgs = P / rho * mu * punit->code_temperature_mu_cgs;
+                value = T_cgs;
+              }
+
+              // 触发任何一个条件，则标明这个 cell 有问题，并在 cell_issues 中记录
               if (check == "nan" and std::isnan(value) 
-              or (check == "negative" and (n == IDN or n == IPR) and value < 0.0)) {
-                debug_stream << position << ": " << check << " found in " << vars_str << "("<< n << "," << k << "," << j << "," << i << "), "
-                              << "value = " << value << ", ncycle = " << pmb->pmy_mesh->ncycle << ", time = " << time << ", dt = " << dt << ", stage = " << ckj_plugin::current_stage
-                               << ", (x,y,z,r) = (" << x << "," << y << "," << z << "," << r << ")\n";
+              or (check == "negative" and (n == IDN or n >= IPR) and value < 0.0)) {
+                has_issues = true;
+                cell_issues << vars_str << "(" << n << ")=" << value << ", ";
               }
             }
+          }
+        }
+
+        if (has_issues) {
+          debug_stream << check_position << ": " 
+                      << "ncycle=" << ncycle << ", stage=" << ckj_plugin::current_stage 
+                      << ", at (k,j,i)=(" << k << "," << j << "," << i << "), "
+                      << cell_issues.str()
+                      << "time=" << time 
+                      << ", dt=" << dt 
+                      << ", (x,y,z,r)=(" << x << "," << y << "," << z << "," << r << "), " 
+                      << std::endl;
+
+          if (first_bug_ncycle == -1) { first_bug_ncycle = ncycle; }
+          if (ncycle - first_bug_ncycle > 3) {
+            throw std::runtime_error("Too many bugs found in CheckCell. Stopped.");
           }
         }
         
@@ -322,6 +372,8 @@ void CheckCell(bool after_source, MeshBlock *pmb, const Real time, const Real dt
 
 
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
+// 这个函数在每个 MeshBlock 中调用，调用时机是每个 timestep 最后一个 stage 的结尾、MeshBlock::UserWorkInLoop 之后（根据 Athena++ 框架示意图）。
+// 调用一路往上可以追溯到 TimeIntegratorTaskList::NewBlockTimeStep
 Real MyTimeStep(MeshBlock *pmb) {
   Real min_dt = std::numeric_limits<Real>::max();  // 先初始化为一个很大的数。这里不用 infinity() 是为了万一启用 -ffast-math 之类的编译选项的话，对无穷大的处理可能不正确
   //* 如果 SN 在 UserWorkInLoop 中注入，那么由于在决定下一个 cycle 的 dt 时尚未注入 SN，因此无法自动限制步长，需要手动限制：
@@ -660,6 +712,12 @@ void MeshBlock::UserWorkInLoop() {
   // 在这里做 cons2prim 的话，由于 MeshBlock 之间的通信在此之前，会造成数据不自洽，导致 MeshBlock 的边界上不对。因此这里不能 cons2prim
 
   // 目前还不清楚，但我看其他的几个 pgen 里也有在这里自己施加 floor 的
+
+  if (debug >= DEBUG_Cell) {
+    CheckCell("UserWorkInLoop", this, pmy_mesh->time, pmy_mesh->dt,
+                              phydro->w, pscalars->r, pfield->bcc,
+                              phydro->u, pscalars->s);
+  }
 
   return;
 }
