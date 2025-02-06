@@ -1,8 +1,14 @@
+// 这个头文件的目的是声明一些可以在多个 pgen 中复用的内容。
+// 但目前也包含了一部分只适用于 turb+BH_accretion 这个 pgen 中使用的内容，以后应当挪到相应 pgen 的头文件中去。
+
 #pragma once
 
-// 这里放一些用于在多个自定义文件中 include 的声明。
-
 #include <unordered_map>
+
+/* -------------------------------------------------------------------------- */
+/*             以下内容目前仅适用于 turb+BH_accretion.cpp 这一个 pgen。            */
+/* -------------------------------------------------------------------------- */
+//FUTURE 这部分应该放到 turb+BH_accretion.hpp 中去。但要等把 turb+BH_accretion.hpp 彻底改为可以被多个文件 include 头文件之后才行。
 
 // Passive Scalar 与其对应的 index 的对应
 //* 修改时，记得在 pgen 中更改对应的名字
@@ -17,18 +23,6 @@ namespace PassiveScalarIndex {
 
 static_assert(PassiveScalarIndex::N_PassiveScalar_defined == NSCALARS, "### ERROR: 已定义的 Passive Scalar 数目与 NSCALARS 不一致！");
 
-// SourceTerm （主要是 SN 和 cooling）的注入时机。按照单个 cycle 内的先后顺序排列，从而可以进行 < 比较
-// 有关源项的时机，参看我的笔记： 《黑洞吸积 SN 湍流 project.md》和《黑洞吸积 SN 湍流 TODO 历史.md》
-enum class SourceTermPosition {InSourceTerm, AfterSourceTerm, UserWorkInLoop}; 
-
-// 用于处理 input 参数中的字符串。对这个 map 使用 .at 方法来获取对应的 SourceTermPosition，如果不存在则会抛出异常
-//? 这里也许不能声明为 static?
-static std::unordered_map<std::string, SourceTermPosition> source_term_position_map = {
-  {"InSourceTerm", SourceTermPosition::InSourceTerm},
-  {"AfterSourceTerm", SourceTermPosition::AfterSourceTerm},
-  {"UserWorkInLoop", SourceTermPosition::UserWorkInLoop}
-};
-
 // 元素丰度，用于计算 mu，从而计算温度 T。目前用在设定初值、计算 Cooling 上。
 // 目前暂时都 hard code 为常量。
   // 如果要在 input file 中设定，则需要写构造函数，接收 ParameterInput *pin。
@@ -42,4 +36,21 @@ struct Abundance {
 
   static constexpr Real mu = 4.0/(5*X_H + 3 - X_Metal);  //? mu 取什么值？
   static constexpr Real mu_e = 2.0/(1+X_H);
+};
+
+
+/* -------------------------------------------------------------------------- */
+/*               以下内容普遍适用于各种 pgen，可以在多个 pgen 之间复用。              */
+/* -------------------------------------------------------------------------- */
+
+// SourceTerm （主要是 SN 和 cooling）的注入时机。按照单个 cycle 内的先后顺序排列，从而可以进行 < 比较
+// 有关源项的时机，参看我的笔记： 《黑洞吸积 SN 湍流 project.md》和《黑洞吸积 SN 湍流 TODO 历史.md》
+enum class SourceTermPosition {InSourceTerm, AfterSourceTerm, UserWorkInLoop}; 
+
+// 用于处理 input 参数中的字符串。对这个 map 使用 .at 方法来获取对应的 SourceTermPosition，如果不存在则会抛出异常
+//? 这里也许不能声明为 static?
+static std::unordered_map<std::string, SourceTermPosition> source_term_position_map = {
+  {"InSourceTerm", SourceTermPosition::InSourceTerm},
+  {"AfterSourceTerm", SourceTermPosition::AfterSourceTerm},
+  {"UserWorkInLoop", SourceTermPosition::UserWorkInLoop}
 };

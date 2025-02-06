@@ -1,3 +1,4 @@
+#pragma once
 // 用于进行 progress report 的类。输出模拟进度、耗时等信息
 
 #include <string>   // std::string

@@ -1,3 +1,5 @@
+// 这个头文件中定义 ckj_plugin namespace 下的一些函数和全局变量，用于侵入式修改 Athena++ 源代码。
+
 #ifndef CKJ_PLUGIN_HPP
 #define CKJ_PLUGIN_HPP
 
