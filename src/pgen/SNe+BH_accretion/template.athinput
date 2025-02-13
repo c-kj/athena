@@ -4,8 +4,8 @@
 # Unit: code unit 是一个标记，表明该参数的单位由 <unit> block 设定。其他 Unit: 则标记着这些参数有独立的单位
 problem   = CKJ TEMPLATE
 reference =
-configure = --prob turb+BH_accretion -hdf5 -fft -mpi --cxx=icpx # 未名二号
-configure = --prob turb+BH_accretion -fft --fftw_path="/opt/homebrew/opt/fftw" -hdf5 --hdf5_path="/opt/homebrew/opt/hdf5" -omp -debug --cxx="clang++" --cflag="-O3 -flto -march=native" # 我的 Mac
+configure = --prob SNe+BH_accretion -hdf5 -fft -mpi --cxx=icpx # 未名二号
+configure = --prob SNe+BH_accretion -fft --fftw_path="/opt/homebrew/opt/fftw" -hdf5 --hdf5_path="/opt/homebrew/opt/hdf5" -omp -debug --cxx="clang++" --cflag="-O3 -flto -march=native" # 我的 Mac
 
 
 <job>

@@ -1,43 +1,8 @@
 // 这个头文件的目的是声明一些可以在多个 pgen 中复用的内容。
-// 但目前也包含了一部分只适用于 turb+BH_accretion 这个 pgen 中使用的内容，以后应当挪到相应 pgen 的头文件中去。
 
 #pragma once
 
 #include <unordered_map>
-
-/* -------------------------------------------------------------------------- */
-/*             以下内容目前仅适用于 turb+BH_accretion.cpp 这一个 pgen。            */
-/* -------------------------------------------------------------------------- */
-//FUTURE 这部分应该放到 turb+BH_accretion.hpp 中去。但要等把 turb+BH_accretion.hpp 彻底改为可以被多个文件 include 头文件之后才行。
-
-// Passive Scalar 与其对应的 index 的对应
-//* 修改时，记得在 pgen 中更改对应的名字
-namespace PassiveScalarIndex {
-  enum PassiveScalarIndex {
-    SN,
-    initial_radius,
-    initial_fluid,
-    N_PassiveScalar_defined
-  };
-}
-
-static_assert(PassiveScalarIndex::N_PassiveScalar_defined == NSCALARS, "### ERROR: 已定义的 Passive Scalar 数目与 NSCALARS 不一致！");
-
-// 元素丰度，用于计算 mu，从而计算温度 T。目前用在设定初值、计算 Cooling 上。
-// 目前暂时都 hard code 为常量。
-  // 如果要在 input file 中设定，则需要写构造函数，接收 ParameterInput *pin。
-  // 如果要改为动态演化，那么就是逐点的了，需要重构。
-struct Abundance {
-  //* 这里修改的话，要在 python 后处理中同步修改。
-  // 设定元素丰度（H, He, Metal 的质量分数）
-  static constexpr Real X_H = 0.7, X_Metal = 0.01295;  //? 这是什么丰度？太阳的？
-  // X_H = 1.0, X_Metal = 0.0;   // 纯 H
-  static constexpr Real X_He = 1.0 - X_H - X_Metal;
-
-  static constexpr Real mu = 4.0/(5*X_H + 3 - X_Metal);  //? mu 取什么值？
-  static constexpr Real mu_e = 2.0/(1+X_H);
-};
-
 
 /* -------------------------------------------------------------------------- */
 /*               以下内容普遍适用于各种 pgen，可以在多个 pgen 之间复用。              */

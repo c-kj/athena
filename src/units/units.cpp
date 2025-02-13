@@ -19,7 +19,9 @@
 #include "../parameter_input.hpp"
 #include "units.hpp"
 
-#include "../pgen/ckj_code/ckj_code.hpp" // Abundance::mu
+//* 目前 Bondi 单位制的实现依赖于 SNe+BH_accretion 这个 pgen 的 Abundance::mu。如果换个 pgen，就应该用不同的 mu，或者把 Bondi 单位制的那段代码注释掉。
+//FUTURE 留给以后需要的时候再解决吧。可以考虑用 #if 来条件编译
+#include "../pgen/SNe+BH_accretion.hpp" // Abundance::mu
 
 //========================================================================================
 //! \fn void Units::Units(ParameterInput *pin)

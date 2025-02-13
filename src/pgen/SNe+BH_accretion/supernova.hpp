@@ -16,7 +16,7 @@
 #include "../../parameter_input.hpp"
 
 // 自定义的头文件
-#include "ckj_code.hpp"
+#include "../ckj_code/ckj_code.hpp"  // SourceTermPosition
 #include "region.hpp"
 
 

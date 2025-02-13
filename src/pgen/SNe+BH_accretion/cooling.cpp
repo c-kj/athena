@@ -4,10 +4,10 @@
 #include "../../hydro/hydro.hpp"
 
 // 自定义的头文件
+#include "../ckj_code/ckj_plugin.hpp"
 #include "cooling.hpp"
 #include "my_outputs.hpp"
 #include "hst_output.hpp"
-#include "ckj_plugin.hpp"
 #include "utils.hpp"
 
 

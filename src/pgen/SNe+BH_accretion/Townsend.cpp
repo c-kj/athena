@@ -92,7 +92,7 @@ Real TownsendCooling::TEF_inv(Real Y) const {
 
 
 
-// 幂函数的倒数的定积分 \int_T^{T_ref} T^{-\alpha} dT
+// 幂函数的倒数的定积分 \int_T^{T_{ref}} T^{-\alpha} dT
 // 这里 ln_T_diff 是 ln(T / T_k)。初始化 Y_k 时， T 取 T_{k+1}。一般情况下 ln_T_diff > 0。
 inline Real powerlaw_integral(Real ln_T_diff, Real alpha_k) {
   return alpha_k == 1 ? -ln_T_diff : 1 / (1 - alpha_k) * (1 - std::exp(ln_T_diff * (1 - alpha_k)) );

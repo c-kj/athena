@@ -14,7 +14,7 @@
 #include "../../scalars/scalars.hpp"
 
 // 自定义的头文件
-#include "ckj_code.hpp"
+#include "../SNe+BH_accretion.hpp" // Abundance::mu
 #include "region.hpp"
 
 #if GENERAL_EOS  // 目前不支持 General EOS，因为从输入的 n、T 转换到 code 所需的 rho、E_thermal 需要更多考量

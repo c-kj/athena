@@ -9,7 +9,8 @@
 #include "../../mesh/mesh.hpp"
 
 // 自定义的头文件
-#include "ckj_code.hpp"
+#include "../ckj_code/ckj_code.hpp" // SourceTermPosition
+#include "../SNe+BH_accretion.hpp"  // Abundance::mu
 #include "Townsend.hpp"
 
 struct TownsendCooling; // forward declaration

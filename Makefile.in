@@ -30,6 +30,8 @@ EXE_DIR := bin/
 EXECUTABLE := $(EXE_DIR)athena
 # 我添加的文件。放在最前面，从而优先编译、优先报错
 SRC_FILES := $(wildcard src/pgen/ckj_code/*.cpp) \
+		 $(wildcard src/pgen/SNe+BH_accretion/*.cpp) \
+	     src/pgen/$(PROBLEM_FILE) \
 		 $(wildcard src/*.cpp) \
 	     $(wildcard src/bvals/*.cpp) \
 	     $(wildcard src/bvals/cc/*.cpp) \
@@ -73,7 +75,6 @@ SRC_FILES := $(wildcard src/pgen/ckj_code/*.cpp) \
 	     $(wildcard src/orbital_advection/*.cpp) \
 	     $(wildcard src/outputs/*.cpp) \
 	     src/pgen/default_pgen.cpp \
-	     src/pgen/$(PROBLEM_FILE) \
 	     $(wildcard src/reconstruct/*.cpp) \
 	     $(wildcard src/scalars/*.cpp) \
 	     $(wildcard src/task_list/*.cpp) \

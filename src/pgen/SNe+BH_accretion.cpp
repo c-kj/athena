@@ -35,7 +35,7 @@
 #endif
 
 /* -------------------------------------------------------------------------- */
-/*                            自定义的变量、函数等                               */
+/*                            自定义模块所需的导入                                */
 /* -------------------------------------------------------------------------- */
 
 // 自定义函数所需的标准库导入
@@ -45,28 +45,28 @@
 
 // 自定义的头文件（各种模块）
 #include "ckj_code/ckj_plugin.hpp"
-#include "ckj_code/utils.hpp"
-#include "ckj_code/region.hpp"
-#include "ckj_code/refinement_condition.hpp"
-#include "ckj_code/supernova.hpp"
-#include "ckj_code/cooling.hpp"
-#include "ckj_code/initial_condition.hpp"
-#include "ckj_code/my_outputs.hpp"
-#include "ckj_code/hst_output.hpp"
-#include "ckj_code/progress_report.hpp"
+#include "SNe+BH_accretion/utils.hpp"
+#include "SNe+BH_accretion/region.hpp"
+#include "SNe+BH_accretion/refinement_condition.hpp"
+#include "SNe+BH_accretion/supernova.hpp"
+#include "SNe+BH_accretion/cooling.hpp"
+#include "SNe+BH_accretion/initial_condition.hpp"
+#include "SNe+BH_accretion/my_outputs.hpp"
+#include "SNe+BH_accretion/hst_output.hpp"
+#include "SNe+BH_accretion/progress_report.hpp"
 
 // 本 pgen 的头文件（以后考虑合并）
-#include "turb+BH_accretion.hpp"
+#include "SNe+BH_accretion.hpp"
 
 
 /* -------------------------------------------------------------------------- */
 /*                                 文件级别的变量                                */
 /* -------------------------------------------------------------------------- */
 
-//BUG 这些全局变量并没有使用 extern 来声明，如果被多个源文件包含的话，会重复定义，违反 ODR，编译也会报错。目前这些全局变量只在 turb+BH_accretion.cpp 中使用，暂时没出问题。
-//TODO 将这些全局变量大多数改造为类的成员变量。剩余的用 extern 声明，然后在 turb+BH_accretion.cpp 中定义。
-//* 实际上，目前没有任何其他源文件（除了 turb+BH_accretion.cpp）包含这个 hpp。这里面的大部分声明都可以直接挪到 turb+BH_accretion.cpp 的开头。
-// 声明自定义的全局变量，从 input file 中读取
+// 如果需要在 pgen 的多个模块中使用（全局变量），放到此 pgen 对应的头文件中，用 extern 声明，并在源文件中定义。
+
+//FUTURE 将这些全局变量大多数改造为类的成员变量
+// 声明自定义的文件级别变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
 
 Real M_BH, GM_BH, R_in, R_out, rho_sink;
@@ -74,20 +74,17 @@ Real M_BH, GM_BH, R_in, R_out, rho_sink;
 Real T_hot_warm, T_warm_cold;
 
 
-//FUTURE 这几个「自定义机制」对象/指针，考虑挪到 ckj_code.hpp 中去，从而可以在其他模块、pgen 中引用
-
-Supernovae supernovae;
-
-Cooling cooling;  //* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变。如果对象很大，可能会消耗大量的栈空间。
-
-std::unique_ptr<InitialCondition> initial_condition;
-
-std::unique_ptr<ProgressReport> progress_report;
-
-//TODO 把 debug 机制相关的变量也都挪到 utils 或 debugging 中去
+//FUTURE 把 debug 机制相关的变量也都挪到 utils 或 debugging 中去
 int verbose, debug;
 std::string debug_filepath, verbose_filepath;
 std::ofstream debug_stream;
+
+// 各个模块实现的机制的 对象/指针
+//* 暂时不用指针，而是直接（在栈上）创建一个对象。这样做的好处是，不用担心对象的生命周期问题。缺点是：对象的大小必须在编译时知道，不能动态改变；如果对象很大，可能会消耗大量的栈空间；无法定义 const 成员变量。
+Supernovae supernovae;
+Cooling cooling;  
+std::unique_ptr<InitialCondition> initial_condition;
+std::unique_ptr<ProgressReport> progress_report;
 
 /* -------------------------------------------------------------------------- */
 /*                              Source Terms 的声明                             */
