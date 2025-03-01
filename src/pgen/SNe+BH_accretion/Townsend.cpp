@@ -14,7 +14,7 @@ TownsendCooling::TownsendCooling(Cooling *cooling, std::vector<Real> log10_T_arr
     throw std::runtime_error("log10_T_array 不是递增的！");
   }
   
-  T_min = std::pow(10, log10_T_array[0]);
+  T_min = std::pow(10, log10_T_array[0]);  // 这里的指数保证了 T_min > 0
 
   //* Townsend 2009 文献中的下标 k 是从 1 到 N-1 的，而 C++ 中的 i 是从 0 到 N-2 的
 
@@ -56,7 +56,7 @@ TownsendCooling::TownsendCooling(Cooling *cooling, std::vector<Real> log10_T_arr
   constexpr Real mu = Abundance::mu;  // 目前这些元素丰度都是常量。以后可能再考虑空间非均匀的情况
   constexpr Real X_H = Abundance::X_H;
   constexpr Real mu_e = Abundance::mu_e;
-  rho_dt_coeff = Lambda_ref/T_ref * (gamma-1) / (k_B_cgs * m_H_cgs) * (mu * X_H / mu_e); // 系数的表达式，自己手推的。这里所有量都是 cgs 单位下的。
+  rho_dt_coeff = Lambda_ref/T_ref * (gamma-1) / (k_B_cgs * m_H_cgs) * (mu * X_H / mu_e); // 系数的表达式，自己手推的。这里所有量都是 cgs 单位下的。参见 Marginnote 上的笔记 & Townsend 2009 Eq.26
   rho_dt_coeff *= punit->code_density_cgs * punit->code_time_cgs; // 提前乘上 rho*dt 的单位转换系数
 }
 
@@ -66,7 +66,7 @@ TownsendCooling::TownsendCooling(Cooling *cooling, std::vector<Real> log10_T_arr
 
 
 Real TownsendCooling::TEF(Real T) const {
-  Real log10_T = std::log10(T);
+  Real log10_T = std::log10(T);  // 这里没有对 T<0 的情况做检查。在 New_T 中调用时，已经处理了 T < T_min 的情况。如果以后有其他调用，需要检查。
   int i = find_T_bin(log10_T);
   // 这里不对 i 进行检查。在外部已经处理了 T < T_min 的情况；而如果 T > T_max，那么会落入 [T_max, \infty) 的区间，使用 alpha_array[N-1] = 0.5 的轫致辐射。
   return Y_array[i] + TEF_no_offset(log10_T, i);

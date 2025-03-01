@@ -12,10 +12,9 @@
 
 
 Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): 
-  punit(pmy_mesh->punit),
+  punit(pmy_mesh->punit),   // 在初始化列表中把传入的 punit 赋值给成员变量 punit
   gamma(pin->GetReal("hydro", "gamma")) // 从 pin 中读取 gamma 的值。这和 EquationOfState 类中初始化的方式是一致的。
-{  // 在初始化列表中把传入的 punit 赋值给成员变量 punit
-
+{
   //FUTURE 要不要用初始化列表？
   // 使用初始化列表的主要好处：可以初始化 const 和 引用 类型的成员变量
 
@@ -58,7 +57,7 @@ Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin):
       Townsend = std::unique_ptr<TownsendCooling>(new TownsendCooling(this, log10_T_array, func));  // 初始化 TownsendCooling 对象
 
     } else {  //TODO 如果 cooling_model 是由数据表给出的，则直接用数据点
-      
+      throw std::invalid_argument("Cooling: cooling_model_analytic == false is not implemented yet!");
     }
 
   } else {  // 常规的 integrator （非 Townsend）
@@ -226,7 +225,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         if (integrator == "Townsend") {
           Real T_old_cgs = P / rho * mu * punit->code_temperature_mu_cgs;
           Real T_new_cgs = Townsend->New_T(T_old_cgs, rho, dt);
-          Real dT_cgs = T_new_cgs - T_old_cgs;
+          Real dT_cgs = T_new_cgs - T_old_cgs;   // 若为 cooling，这里 dT_cgs 是负数
           dE = dT_cgs * rho / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
 
         } else {  // 如果不是 Townsend integrator，则用普通的 integrator 方法，进行 subcycle

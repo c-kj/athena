@@ -25,19 +25,19 @@ void ensure_parent_directory_exists(const std::string &path);
 // 泛化的 writeMapToFile 函数，适用于装有各种类型的 map
 template <typename K, typename V>
 void writeMapToFile(const std::map<K, V>& map, const std::string& filename) {
-    ensure_parent_directory_exists(filename);  // 确保父目录存在
+  ensure_parent_directory_exists(filename);  // 确保父目录存在
 
-    std::ofstream file{filename};
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << filename << '\n';
-        return;
-    }
+  std::ofstream file{filename};
+  if (!file.is_open()) {
+    std::cerr << "Failed to open file: " << filename << '\n';
+    return;
+  }
 
-    for (const auto& pair : map) {
-        file << pair.first << ": " << pair.second << '\n';
-    }
+  for (const auto& pair : map) {
+    file << pair.first << ": " << pair.second << '\n';
+  }
 
-    file.close();
+  file.close();
 }
 
 

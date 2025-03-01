@@ -9,14 +9,15 @@
 
 struct Cooling; // forward declaration
 
+// 实现 Townsend 2009 算法的类
+//* 这个类中所有的 T 和 Lambda 都是 cgs 单位制下的！就不单独标明了
 struct TownsendCooling {
   TownsendCooling(Cooling *cooling, std::vector<Real> log10_T_array, std::vector<Real> log10_Lambda_array);
   // 委托构造函数，根据 CoolingFunc 在 log10_T_array 的采样点来构造
   // CoolingFunc 是一个接收 T_cgs，返回 Lambda_cgs （emissivity in cgs unit）的函数
   TownsendCooling(Cooling *cooling, std::vector<Real> log10_T_array, std::function<Real(Real)> CoolingFunc);
 
-
-  Real TEF(Real T) const;
+  Real TEF(Real T) const;  // TEF: Temporal Evolution Function
   Real TEF_inv(Real Y) const;
 
   int find_T_bin(Real log10_T) const;
@@ -39,12 +40,13 @@ struct TownsendCooling {
 
   const Real alpha_last = 0.5;  // 最后一个区间的 alpha，默认为 0.5 （free-free 轫致辐射）
   Real log10_T_ref, log10_Lambda_ref;  // 参考点
-  Real T_min; // cooling curve 数据中的最低温度
+  Real T_min; // cooling curve 数据中的最低温度，cgs 单位制
 
   Real rho_dt_coeff;  // New_T 函数中乘在 rho * dt 前面的系数
 
 private:
   // 辅助函数，根据 CoolingFunc 计算对应于每个 log10_T 的 log10_Lambda，同时检查是否有 Lambda <= 0 的情况
+  // CoolingFunc 是一个接收 T_cgs，返回 Lambda_cgs 的函数
   std::vector<Real> Calc_log10_Lambda_array(std::function<Real(Real)> CoolingFunc, std::vector<Real> log10_T_array);
 };
 

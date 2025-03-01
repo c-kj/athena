@@ -48,15 +48,8 @@ SECONDS=0
 # 获取脚本开始时间
 start_time=$(date +%s)
 
-# 导入MPI运行环境
-module purge
-export MPICH_CXX=icpx
-module load compiler hdf5/1.12.1-p-oneapi_2023.0 mpi fftw
-module list
-
 
 # 检查是否只有一个 *.athinput 文件
-
 athinput_files=( *.athinput )   # 使用 globbing 找到所有匹配 *.athinput 的文件，并将它们放入一个数组中
 if (( ${#athinput_files[@]} != 1 )); then  # 检查数组的长度
     echo "Error: Expected exactly one *.athinput file, but found ${#athinput_files[@]}"
@@ -67,12 +60,21 @@ athinput_file="${athinput_files[0]}"
 echo "Found exactly one *.athinput file: ${athinput_file}"
 
 
+
+# 导入MPI运行环境
+module purge
+export MPICH_CXX=icpx
+module load compiler hdf5/1.12.1-p-oneapi_2023.0 mpi fftw
+module load vtune
+module list
+
 export UCX_TLS=ud,sm,self # https://github.com/openucx/ucx/issues/4742，解决 OFI 大规模时报错
 export I_MPI_PMI_LIBRARY=/lib64/libpmi2.so  # 设置 PMI 的路径。也可以 /lib64/libpmi.so，不过 SLURM 官网推荐 pmi2
 export SLURM_MPI_TYPE=pmi2 # 等价于 srun 的时候加入参数 --mpi=pmi2。不加会报错 PMI2_Job_GetId returned 14
 
 # 生成 machinefile
 srun hostname -s | sort -n > slurm.hosts
+
 
 
 # 保存一些信息
@@ -82,7 +84,6 @@ mpirun -n 1 athena -c > info/configure.txt                 # 打印 Athena++ 的
 mpirun -n 1 athena -d output -i "$athinput_file" -m "$SLURM_NTASKS" > info/MeshBlocks.txt 
 mv mesh_structure.dat info/                                # 保存网格结构信息
 
-module load vtune
 
 MPI_CMD="mpirun -n \"$SLURM_NTASKS\" -machinefile slurm.hosts"  #FUTURE 可以尝试用 srun。之前的尝试，似乎不能跨节点？
 
@@ -106,7 +107,10 @@ echo "Athena++ 运行完毕"
 echo "当前时间: $(date)"
 echo "当前脚本耗时: $SECONDS 秒"
 
+
+
 # 运行完之后，直接做后处理
+#TODO 可以考虑调用 post_processing.sh，但要考虑到 SLURM 环境变量、MPI_CMD 等的传递问题
 
 VTUNE_CMD=""
 # VTUNE_CMD="vtune -collect hotspots -knob sampling-mode=sw -r vtune_result/post_processing.$SLURM_JOB_ID -trace-mpi"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
