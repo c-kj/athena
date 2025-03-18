@@ -204,6 +204,14 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
 
   const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
 
+  // 用于从 cons 中计算 E_thermal
+  auto get_E_thermal_cons = [](const AthenaArray<Real> &cons, int k, int j, int i) -> Real {
+    Real rho = cons(IDN,k,j,i);
+    // Real rho_inv = 1.0 / rho; 
+    Real E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho ); //TEMP 测试改成 rho_inv 会怎样
+    return E_thermal; 
+  };
+
   //? 这里是否需要避免黑洞内被 Cooling 影响？（至于 R_out 之外应该不用避免 Cooling，否则压强反而不正确了）
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
     for (int j = pmb->js; j <= pmb->je; ++j) {
@@ -218,7 +226,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           E_thermal = P / (gamma - 1.0);
         } else {
           rho = cons(IDN,k,j,i); 
-          E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+          E_thermal = get_E_thermal_cons(cons,k,j,i); // 这里的 E_thermal 是 cons 中的能量密度
           P = (gamma - 1.0) * E_thermal;
         }
 
@@ -234,13 +242,13 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
             Real P = (gamma - 1.0) * E_thermal;
             return - CoolingRate(rho, P);  // 注意这里是负号，因为 CoolingRate 是正数，而 dE/dt = RHS 是负数
           };
-          // Subcycle 子循环，求得 dE。可以考虑拎出来作为一个成员函数
+          // Subcycle 子循环，求得 dE。//TODO 可以考虑拎出来作为一个成员函数
           Real dt_subcycle = dt;  // 这里初始化的值实际上无所谓，因为在子循环的开始一定会被重新赋值
           Real t_subcycle = 0.0;  // 从 0 增加到 dt
           Real dE_subcycle = 0.0;  // 在当前子循环中增加的 dE
           while (t_subcycle < dt) { // 进入子循环
             if (subcycle_adaptive || t_subcycle == 0.0) {  // 如果 subcycle_adaptive 则每个 subcycle 都重新计算 dt_subcycle，否则只在第一个子循环计算一次
-              dt_subcycle = CoolingTimeScale(E_thermal, CoolingRate(rho, P)) * CFL_subcycle;   //BUG 这里 E_thermal 和 P 都没有在子循环中更新！dt_subcycle 其实没有变化！
+              dt_subcycle = CoolingTimeScale(E_thermal+dE, CoolingRate(rho, P + dE*(gamma - 1.0) )) * CFL_subcycle; // 计算 dt_subcycle 时，使用自循环内当前的 E_thermal 和 P 值（初始值 + 自循环累计的更新）
             }
             if (t_subcycle + dt_subcycle > dt) {dt_subcycle = dt - t_subcycle;}  // 限制 dt_subcycle 使得 t_subcycle 不能超过 dt，使最后一个子循环结束时 t_subcycle == dt。同时也限制了 dt_subcycle <= dt
             dE_subcycle = Integrator(RHS, E_thermal+dE, dt_subcycle);
@@ -257,7 +265,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           Real E_thermal_floor = rho * T_floor_cgs / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
           // 避免 cooling 到 floor 以下，如果本来就在 floor 以下则不管（膨胀冷却、高马赫数伪冷却）
           //* 这里不管前面用的是 prim 还是 cons，都使用 cons 来计算「剩余」的 E_thermal，因为 cons 才是被源项改变的量。
-          Real E_thermal_cons = use_prim_in_cooling ? (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho) : E_thermal; // 如果前面已经用了 cons 来计算 E_thermal，就不用再算一遍了
+          Real E_thermal_cons = use_prim_in_cooling ? get_E_thermal_cons(cons,k,j,i) : E_thermal; // 如果前面已经用了 cons 来计算 E_thermal，就不用再算一遍了
           Real E_thermal_minus_floor = E_thermal_cons - E_thermal_floor;    // 当前 E_thermal 与 floor 的差值。不论前面的计算用 prim 还是 cons，这里都用 cons，因为这才是要被改变的量。
           if (E_thermal_minus_floor > 0 and dE < - E_thermal_minus_floor) { // 如果 E_thermal 高于 floor 且 cooling 会把 E_thermal 降到 floor 以下
             dE = - E_thermal_minus_floor;                                   // 则把 dE 设为 - E_thermal_minus_floor，使得 E_thermal 降到 floor 处

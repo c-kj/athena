@@ -104,8 +104,8 @@ inline void ProgressReport::report(bool final) {
     text << std::fixed << std::setprecision(2); // 百分比使用固定小数点
     text << "cycle = " << ncycle << ". 当前耗时: " <<  format_duration(elapsed) << ", 进度 " << time/total_time * 100 << "% \n";
     text << std::scientific << std::setprecision(2);  // 以下数字使用科学计数法。时分秒除外
-    text << "当前模拟中 time = " << time << " (" << time * punit->million_yr_code << " Myr), 全长 " << total_time << " (" << total_time * punit->million_yr_code << " Myr)\n";
-    text << "最近 " << ncycle - last_report.ncycle << " 个 cycle 耗时: " << format_duration(elapsed_since_last_report) << ", 模拟中时间推进了 " << (time - last_report.time) << " code_time (" << (time - last_report.time) * punit->million_yr_code << " Myr)\n";
+    text << "当前模拟中 time = " << time << " (" << time / punit->million_yr_code << " Myr), 全长 " << total_time << " (" << total_time / punit->million_yr_code << " Myr)\n";
+    text << "最近 " << ncycle - last_report.ncycle << " 个 cycle 耗时: " << format_duration(elapsed_since_last_report) << ", 模拟中时间推进了 " << (time - last_report.time) << " code_time (" << (time - last_report.time) / punit->million_yr_code << " Myr)\n";
 
     // 耗时估算
     duration<double> t_total_all = elapsed / time * total_time;  // 基于历史耗时，估计总时长

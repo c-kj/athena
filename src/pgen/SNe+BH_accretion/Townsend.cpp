@@ -123,7 +123,7 @@ int TownsendCooling::find_Y_bin(Real Y) const {
 }
 
 Real TownsendCooling::New_T(Real T, Real rho, Real dt) const {
-  if (T <= T_min) {return T_min;}  // 如果输入的 T 已经低于 cooling curve 数据的最低温度，直接返回最低温度
+  if (T <= T_min) {return T;}  // 如果输入的 T 已经低于 cooling curve 数据的最低温度，直接原样返回，不改变 T。
   return TEF_inv(TEF(T) + rho_dt_coeff * rho * dt); // 这里的 rho*dt 是 code unit 下的，但 rho_dt_coeff 中已经乘了对应单位的转换系数，其整体是在 cgs 下进行的计算。
 }
 
