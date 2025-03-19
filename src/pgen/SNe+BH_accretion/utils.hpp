@@ -8,6 +8,11 @@
 #include <map>
 #include <chrono>
 
+// check_nan 函数所需的标准库导入
+#include <cstdint>     // for uint32_t, uint64_t
+#include <cstring>     // for std::memcpy
+#include <type_traits> // for std::is_floating_point
+
 // Athena++ headers
 #include "../../athena.hpp"
 #include "../../parameter_input.hpp"
@@ -63,6 +68,30 @@ std::array<Real, N> read_array(const std::string& str, char delimiter=',') {
 
 
 std::string format_duration(const std::chrono::duration<double>& duration);
+
+
+// 使用位操作检查浮点数是否为 NaN。保证不受编译器优化影响。
+// 适用于各种系统、平台、编译器（只要符合 IEEE 754 标准）
+template<typename T>
+bool check_nan(T value) {
+  static_assert(std::is_floating_point<T>::value, 
+                "check_nan requires floating point type");  // 检查 T 是否为浮点类型
+  
+  // 根据浮点类型选择对应的位掩码
+  constexpr bool is_float = sizeof(T) == sizeof(uint32_t);
+  using UInt = typename std::conditional<is_float, uint32_t, uint64_t>::type;  // 掩码的类型
+
+  constexpr UInt exponent_mask = is_float ? 0x7F800000u : 0x7FF0000000000000u; // 指数掩码
+  constexpr UInt mantissa_mask = is_float ? 0x007FFFFFu : 0x000FFFFFFFFFFFFFu; // 尾数掩码
+  
+  UInt bits; // 用于存储 value 的位表示
+  std::memcpy(&bits, &value, sizeof(T));  // 将 value 的位表示拷贝到 bits 中
+
+  return ((bits & exponent_mask) == exponent_mask) && // 指数位全1
+          ((bits & mantissa_mask) != 0);               // 尾数位非0
+}
+
+
 
 // debug 机制。以后 utils 比较臃肿时可以挪到单独的 debugging.hpp 中定义。
 

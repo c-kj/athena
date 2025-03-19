@@ -86,6 +86,22 @@ Cooling cooling;
 std::unique_ptr<InitialCondition> initial_condition;
 std::unique_ptr<ProgressReport> progress_report;
 
+
+/* -------------------------------------------------------------------------- */
+/*                                   自定义函数                                  */
+/* -------------------------------------------------------------------------- */
+
+// 初始化 debug_stream：确保文件存在、确保 stream 打开
+void init_debug_stream(std::ofstream& debug_stream, const std::string& debug_filepath) {
+  ensure_parent_directory_exists(debug_filepath);  // 只在 Rank 0 上创建目录，不太确定这样是否会在并行时出问题
+  if (Globals::my_rank == 0) {
+    printf("DEBUG: saving debug info to file %s \n", debug_filepath.c_str());
+  }
+  if (not debug_stream.is_open()) {
+    debug_stream.open(debug_filepath, std::ios::app); // 用于输出 debug 信息的文件流
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              Source Terms 的声明                             */
 /* -------------------------------------------------------------------------- */
@@ -116,12 +132,6 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar);
 
-// 用于检查单个格点的函数，检查是否有 nan 或负数的情况。只有 debug >= DEBUG_Cell 时才会调用。
-// check_position 的可选值：before_source, after_source, after_cons2prim
-void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, const Real dt,
-             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
-             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
-             AthenaArray<Real> &cons_scalar);
 
 /* -------------------------------------------------------------------------- */
 /*                                Source Terms                                */
@@ -362,9 +372,26 @@ void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, cons
 
   int ncycle = pmb->pmy_mesh->ncycle;
   static int first_bug_ncycle = -1;
+  static int first_negative_ncycle = -1;
 
   constexpr int var_E_thermal = IPR+1;
   constexpr int var_T = IPR+2;
+
+  //TEMP 检查 dt。这里用了侵入式写法，临时把 mesh.hpp 中的 private 注释掉了
+  std::array<Real, 4> dt_arr {pmb->new_block_dt_, pmb->new_block_dt_hyperbolic_, pmb->new_block_dt_parabolic_, pmb->new_block_dt_user_};
+  for (std::string check: {"nan", "zero"}) {
+    for (int i=0; i<dt_arr.size(); ++i) {
+      Real dt_ = dt_arr[i];
+      if (check == "nan" and check_nan(dt_) or check == "zero" and dt_ == 0.0) {
+        debug_stream << "Check dt:"
+                    << check_position << ": " 
+                    << "ncycle=" << ncycle << ", stage=" << ckj_plugin::current_stage 
+                    << ", at gid=" << pmb->gid
+                    << ", dt_arr(" << i << ") = " << dt_
+                    << std::endl;
+      }
+    }
+  }
 
   // 遍历每个 cell
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
@@ -377,6 +404,7 @@ void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, cons
 
         std::stringstream cell_issues;
         bool has_issues = false;
+        bool has_nan    = false;
 
         for (std::string check: {"nan", "negative"}) {  // 遍历检查项
           for (std::string vars_str: {"cons", "prim"}) {
@@ -389,8 +417,10 @@ void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, cons
               P = prim(IPR,k,j,i);
               E_thermal = P / (gamma - 1.0);
             } else {
-              rho = cons(IDN,k,j,i); 
-              E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) / rho);  
+              rho = cons(IDN,k,j,i);
+              //TEMP 用 rho 还是 rho_inv ?
+              Real rho_inv = 1.0 / rho; 
+              E_thermal = (cons(IEN,k,j,i) - 0.5 * (SQR(cons(IM1,k,j,i)) + SQR(cons(IM2,k,j,i)) + SQR(cons(IM3,k,j,i))) * rho_inv);  
               P = (gamma - 1.0) * E_thermal;
             }
 
@@ -406,30 +436,42 @@ void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, cons
               }
 
               // 触发任何一个条件，则标明这个 cell 有问题，并在 cell_issues 中记录
-              if (check == "nan" and std::isnan(value) 
-              or (check == "negative" and (n == IDN or n >= IPR) and value < 0.0)) {
+              //TODO 这里 std::isnan 在 icpx 的 fast-math 优化下失效。可以考虑删去。
+              if ((check == "nan" and (std::isnan(value) or check_nan(value))) or 
+                  (check == "negative" and (n == IDN or n >= IPR) and value < 0.0)) {
                 has_issues = true;
-                cell_issues << vars_str << "(" << n << ")=" << value << ", ";
+                if (check == "nan") { has_nan = true; }
+                cell_issues << vars_str << "(" << n << ")=" << value 
+                            << "[" << check << "]"       //TEMP [nan]
+                            << ", ";
               }
             }
           }
         }
 
-        if (has_issues) {
+        //TEMP 输出 T_prim_cgs
+        Real T_prim_cgs = prim(IPR,k,j,i) / prim(IDN,k,j,i) * mu * punit->code_temperature_mu_cgs;
+        if (has_issues and ncycle - first_negative_ncycle < 100 or has_nan) { // negative 仅记录前 100 个 cycle，避免太多
           debug_stream << check_position << ": " 
                       << "ncycle=" << ncycle << ", stage=" << ckj_plugin::current_stage 
-                      << ", at (k,j,i)=(" << k << "," << j << "," << i << "), "
+                      << ", at gid=" << pmb->gid
+                      << ", (k,j,i)=(" << k << "," << j << "," << i << "), "
                       << cell_issues.str()
                       << "time=" << time 
                       << ", dt=" << dt 
-                      << ", (x,y,z,r)=(" << x << "," << y << "," << z << "," << r << "), " 
+                      << ", (x,y,z,r)=(" << x << "," << y << "," << z << "," << r << "), "
+                      << "T_prim_cgs = " << T_prim_cgs
                       << std::endl;
 
+        }
+        
+        if (has_nan) { // 只有 cell 中含有 nan 的情况下才认为是 bug，记录 ncycle。如果一直只有 negative 但没有 nan，目前认为不算 bug。
           if (first_bug_ncycle == -1) { first_bug_ncycle = ncycle; }
           if (ncycle - first_bug_ncycle > 3) {
             throw std::runtime_error("Too many bugs found in CheckCell. Stopped.");
           }
         }
+        if (has_issues and first_negative_ncycle == -1) { first_negative_ncycle = ncycle; }
         
       }
     }
@@ -465,6 +507,13 @@ void HSTManager::register_all_entries() {
   add_entry("num_MeshBlocks");
   add_entry("dt_hyperbolic", UserHistoryOperation::min);
   add_entry("dt_user", UserHistoryOperation::min);
+  
+  //TEMP debug 用
+  if (debug >= DEBUG_TimeStep) {
+    add_entry("dt_min", UserHistoryOperation::min); // 各个 MeshBlock 从 pmy_mesh 获得的 dt 的最小值（有啥用？）    //BUG 这里不该跟内置的重名！ 
+    add_entry("dt_parabolic", UserHistoryOperation::min);  
+    add_entry("dt_averaged", UserHistoryOperation::sum); // 各个 MeshBlock 从 pmy_mesh 获得的 dt 的平均值（有啥用？） 
+  }
 
   //TODO 改为用循环批量添加
 
@@ -604,6 +653,13 @@ void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
   hst_data["dt_hyperbolic"] = pmy_mesh->dt_hyperbolic;
   hst_data["dt_user"] = pmy_mesh->dt_user;
 
+  //TEMP debug 用
+  if (debug >= DEBUG_TimeStep) {
+    hst_data["dt_min"] = pmy_mesh->dt;
+    hst_data["dt_parabolic"] = pmy_mesh->dt_parabolic;
+    hst_data["dt_averaged"] = pmy_mesh->dt / pmy_mesh->nbtotal;
+  }
+
 }
 
 
@@ -615,6 +671,7 @@ void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
 
 // 调用时机：Mesh 类实例化时，也即 main.cpp 的 Step 4。restart 时也会调用。
 // 函数用途：初始化 Mesh 上的全局变量（各个 MeshBlock 共享）；enroll 各种自定义函数
+// 注意：这里工作路径在运行 athena 时所在的路径中（似乎不一定是 input file 的父目录？）。而进入主循环时，工作路径会改到放 output 的路径中。
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (SELF_GRAVITY_ENABLED) {
     Real four_pi_G = pin->GetReal("problem","four_pi_G");
@@ -681,12 +738,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // <debug> 里的参数
   debug = pin->GetOrAddInteger("debug", "debug", 0);
-  if (debug > DEBUG_NONE) {
-    debug_filepath = pin->GetOrAddString("debug", "debug_filepath", "info/debug_info.txt");
-    ensure_parent_directory_exists(debug_filepath);
-    debug_stream.open(debug_filepath, std::ios::app); // 用于输出 debug 信息的文件流
-    printf("DEBUG: saving debug info to file %s \n", debug_filepath.c_str());
-  }
+  debug_filepath = pin->GetOrAddString("debug", "debug_filepath", "info/debug_info.txt");
+  init_debug_stream(debug_stream, debug_filepath); // 不论是否开启 debug，都初始化 debug_stream。否则后续主循环中再开启的话，路径变到 output 下面去了
 
   // Enroll 各种自定义函数
 
@@ -797,6 +850,31 @@ void Mesh::UserWorkInLoop() {
 
   if (progress_report->is_time_to_report()) {
     progress_report->report();
+  }
+
+
+  //TEMP 检查 dt == 0 的 bug。目前出现在本该 Crash 但加了 floor 导致一直停滞，模拟无法结束的情形
+  static int zero_dt_count = 0;  // 连续出现 dt == 0 的 cycle 数
+  static int debug_original = debug;
+  if (dt == 0.0) { // 如果出现 dt == 0 的 bug
+    if (zero_dt_count == 0) {  // 初次检测到
+      if (Globals::my_rank == 0) {
+        std::cerr << "在 ncycle = " << ncycle << " 时开始检测到 dt==0，开启 debug = DEBUG_ALL。\n";
+      }
+      // 开启 debug flag
+      debug = DEBUG_ALL;
+    }
+    zero_dt_count++;
+    if (zero_dt_count > 100 and Globals::my_rank == 0) {
+      std::string msg = "在连续 100 个 cycle 中，dt 都为 0，终止模拟！";
+      if (progress_report) { progress_report->stream << msg << std::endl; } // 先判空，防止 seg fault
+      throw std::runtime_error(msg);
+    }
+  } else { // 正常情况
+    if (zero_dt_count > 0) { // 如果 dt 从 0 恢复正常了
+      zero_dt_count = 0;     // 清零计数
+      debug = debug_original;
+    }
   }
   return;
 }

@@ -42,3 +42,17 @@ struct Abundance {
 /*                      在同一个 pgen 的各个模块间共享的全局变量                     */
 /* -------------------------------------------------------------------------- */
 //* 需要用 extern 声明，并在 cpp 文件中定义
+//* 注意虽然是全局变量，但只在同一个 MPI rank 上共享
+
+extern int verbose, debug;
+
+/* -------------------------------------------------------------------------- */
+/*                                     函数                                     */
+/* -------------------------------------------------------------------------- */
+
+// 用于检查单个格点的函数，检查是否有 nan 或负数的情况。只有 debug >= DEBUG_Cell 时才应该被调用。
+// check_position 的可选值：before_source, after_source, after_cons2prim
+void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, const Real dt,
+  const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+  const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+  AthenaArray<Real> &cons_scalar);

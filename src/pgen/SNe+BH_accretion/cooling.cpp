@@ -236,6 +236,20 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           Real dT_cgs = T_new_cgs - T_old_cgs;   // 若为 cooling，这里 dT_cgs 是负数
           dE = dT_cgs * rho / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
 
+          //TEMP 为了 debug 看巨大加热是不是这里引起的
+          if (debug >= DEBUG_Cell) {
+            if (dT_cgs > 1e3 or (dT_cgs/T_old_cgs > 0.1 and T_old_cgs > 0)) {
+              static int report_count = 0;
+              if (report_count < 1e5) {  // 别输出太多
+                std::cerr << "Huge heating detected: dT_cgs = " << dT_cgs 
+                << ", T_old_cgs = " << T_old_cgs << ", T_new_cgs = " << T_new_cgs
+                << ", rho = " << rho << ", P = " << P << ", dt = " << dt 
+                << ", dE = " << dE << std::endl;
+                report_count++;
+              }
+            }
+          }
+
         } else {  // 如果不是 Townsend integrator，则用普通的 integrator 方法，进行 subcycle
 
           auto RHS = [rho,this](Real E_thermal) {
@@ -267,8 +281,18 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           //* 这里不管前面用的是 prim 还是 cons，都使用 cons 来计算「剩余」的 E_thermal，因为 cons 才是被源项改变的量。
           Real E_thermal_cons = use_prim_in_cooling ? get_E_thermal_cons(cons,k,j,i) : E_thermal; // 如果前面已经用了 cons 来计算 E_thermal，就不用再算一遍了
           Real E_thermal_minus_floor = E_thermal_cons - E_thermal_floor;    // 当前 E_thermal 与 floor 的差值。不论前面的计算用 prim 还是 cons，这里都用 cons，因为这才是要被改变的量。
-          if (E_thermal_minus_floor > 0 and dE < - E_thermal_minus_floor) { // 如果 E_thermal 高于 floor 且 cooling 会把 E_thermal 降到 floor 以下
+          if (E_thermal_cons > E_thermal_floor and dE < - E_thermal_minus_floor) { // 如果 E_thermal 高于 floor 且 cooling 会把 E_thermal 降到 floor 以下
             dE = - E_thermal_minus_floor;                                   // 则把 dE 设为 - E_thermal_minus_floor，使得 E_thermal 降到 floor 处
+          }
+
+          //TEMP 只把负的给弄到 T_floor，暂时不管 0 < T < T_floor 的 T
+          if (E_thermal_cons <= 0 and E_thermal_cons < E_thermal_floor) {
+            dE = - E_thermal_minus_floor;
+          }
+
+          //TEMP 尝试：严格 T_floor，只要 旧的或新的 T < T_floor，就会被强制设为 T_floor
+          if (E_thermal_cons < E_thermal_floor or E_thermal_cons + dE < E_thermal_floor) {
+            dE = - E_thermal_minus_floor;
           }
         }
 
