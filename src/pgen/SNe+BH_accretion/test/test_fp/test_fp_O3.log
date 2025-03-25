@@ -1,0 +1,96 @@
+Testing value: 0
+  -> fpclassify(x) = 2
+  -> 用标准库函数分类: 0.0
+  -> 用自定义函数分类: 0.0
+  -> Reciprocal (1/x): inf
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: -0
+  -> fpclassify(x) = 2
+  -> 用标准库函数分类: 0.0
+  -> 用自定义函数分类: 0.0
+  -> Reciprocal (1/x): -inf
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: inf
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: subnormal
+  -> 用自定义函数分类: inf
+  -> Reciprocal (1/x): 0
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: -inf
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: subnormal
+  -> 用自定义函数分类: inf
+  -> Reciprocal (1/x): -0
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: nan
+  -> fpclassify(x) = 2
+  -> 用标准库函数分类: 0.0
+  -> 用自定义函数分类: NaN
+  -> Reciprocal (1/x): nan
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: 4.94066e-324
+  -> fpclassify(x) = 2
+  -> 用标准库函数分类: 0.0
+  -> 用自定义函数分类: subnormal
+  -> Reciprocal (1/x): inf
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: 2.22507e-308
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): 4.49423e+307
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: 1.79769e+308
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): 0
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: 1e-300
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): 1e+300
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: -1e-300
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): -1e+300
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: 1e+300
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): 1e-300
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+
+Testing value: -1e+300
+  -> fpclassify(x) = 4
+  -> 用标准库函数分类: normal
+  -> 用自定义函数分类: normal
+  -> Reciprocal (1/x): -1e-300
+  -> Division by zero (x/0): 2.48625e+262
+  -> Division by itself (x/x): 1
+

@@ -7,6 +7,7 @@
 #include <fstream>  // std::ofstream
 #include <map>
 #include <chrono>
+#include <vector>
 
 // check_nan 函数所需的标准库导入
 #include <cstdint>     // for uint32_t, uint64_t
@@ -20,8 +21,6 @@
 
 
 
-
-void printf_and_save_to_stream(std::ostream &stream, const char *format, ...);
 
 void check_and_create_directory(const std::string &path);
 
@@ -70,58 +69,66 @@ std::array<Real, N> read_array(const std::string& str, char delimiter=',') {
 std::string format_duration(const std::chrono::duration<double>& duration);
 
 
-// 使用位操作检查浮点数是否为 NaN。保证不受编译器优化影响。
-// 适用于各种系统、平台、编译器（只要符合 IEEE 754 标准）
-template<typename T>
-bool check_nan(T value) {
-  static_assert(std::is_floating_point<T>::value, 
-                "check_nan requires floating point type");  // 检查 T 是否为浮点类型
-  
-  // 根据浮点类型选择对应的位掩码
-  constexpr bool is_float = sizeof(T) == sizeof(uint32_t);
-  using UInt = typename std::conditional<is_float, uint32_t, uint64_t>::type;  // 掩码的类型
+// 使用位运算对浮点数 (fp) 进行各类检查、分类
+namespace fpcheck {
 
-  constexpr UInt exponent_mask = is_float ? 0x7F800000u : 0x7FF0000000000000u; // 指数掩码
-  constexpr UInt mantissa_mask = is_float ? 0x007FFFFFu : 0x000FFFFFFFFFFFFFu; // 尾数掩码
-  
-  UInt bits; // 用于存储 value 的位表示
-  std::memcpy(&bits, &value, sizeof(T));  // 将 value 的位表示拷贝到 bits 中
+  // 使用位运算检测浮点数类别，返回标准宏值。保证不受编译器优化影响。
+  // 适用于各种系统、平台、编译器（只要符合 IEEE 754 标准）
+  // 返回值为标准库中定义的宏值：FP_NAN, FP_INFINITE, FP_ZERO, FP_SUBNORMAL, FP_NORMAL
+  template<typename T>
+  int fpclassify_bits(T value) {
+    static_assert(std::is_floating_point<T>::value, "fpclassify_bits requires floating point type");  // 检查 T 是否为浮点类型
+    
+    // 根据浮点类型选择对应的整数类型，用于存储位表示
+    constexpr bool is_float = sizeof(T) == sizeof(uint32_t);
+    using UInt = typename std::conditional<is_float, uint32_t, uint64_t>::type;
+    
+    // 指数和尾数的掩码
+    constexpr UInt exponent_mask = is_float ? 0x7F800000u : 0x7FF0000000000000u;
+    constexpr UInt mantissa_mask = is_float ? 0x007FFFFFu : 0x000FFFFFFFFFFFFFu;
+    
+    // 获取浮点数的位表示
+    UInt bits;                                           // 用于存储 value 的位表示
+    std::memcpy(&bits, &value, sizeof(T));  // 将 value 的位表示拷贝到 bits 中
+    
+    // 提取指数和尾数部分
+    UInt exponent = bits & exponent_mask;
+    UInt mantissa = bits & mantissa_mask;
+    
+    // 分类判断，使用标准库中定义的宏
+    if (exponent == exponent_mask) {  // 指数位全1
+      return (mantissa != 0) ? FP_NAN : FP_INFINITE;
+    } else if (exponent == 0) {  // 指数位全0
+      return (mantissa != 0) ? FP_SUBNORMAL : FP_ZERO;
+    } else {  // 其他情况为正规数
+      return FP_NORMAL;  // 指数位不为全 1（排除无穷大和 NaN），也不为全 0（排除次正规数和零）。
+    }
+  }
 
-  return ((bits & exponent_mask) == exponent_mask) && // 指数位全1
-          ((bits & mantissa_mask) != 0);               // 尾数位非0
-}
+  //* 以下命名有意加了一个 _ 以与标准库中的区分
+
+  template<typename T>
+  bool is_nan(T value) { return fpclassify_bits(value) == FP_NAN; }
+
+  template<typename T>
+  bool is_inf(T value) { return fpclassify_bits(value) == FP_INFINITE; }
+
+  template<typename T>
+  bool is_zero(T value) { return fpclassify_bits(value) == FP_ZERO; }
+
+  template<typename T>
+  bool is_subnormal(T value) { return fpclassify_bits(value) == FP_SUBNORMAL; }
+
+  template<typename T>
+  bool is_normal(T value) { return fpclassify_bits(value) == FP_NORMAL; }
+
+  template<typename T>
+  bool is_finite(T value) {
+    int classification = fpclassify_bits(value);
+    return classification != FP_INFINITE and classification != FP_NAN;
+  }
 
 
-
-// debug 机制。以后 utils 比较臃肿时可以挪到单独的 debugging.hpp 中定义。
-
-
-// 通过枚举类型来定义 verbose 的级别，这样做比用数字更加清晰
-// 为抑制信息，正值为 debug 信息，0 为正常运行时下应该输出的信息
-enum VerboseLevel
-{
-  //? 目前还没想好 verbose 应该用来输出什么信息
-  // 基准是 0 （verbose 的默认值），也就是正常运行时输出：ERROR 和 WARNING
-  VERBOSE_NONE = -100,   // 抑制
-  VERBOSE_ERROR = -50,   // 遇到严重错误时
-  VERBOSE_WARNING = -10, // 可能导致错误的情况，需要检查
-  VERBOSE_INFO = 10,     // 一般信息
-};
-enum DebugLevel
-{
-  DEBUG_NONE = 0,       // 不输出 debug 信息
-  DEBUG_Main = 20,      // 整个主程序的步骤，不包括主循环中的每个时间步
-  DEBUG_TimeStep = 30,  // 主循环中每个时间步的信息
-  DEBUG_Mesh = 50,      // 调用 Mesh 时相关的信息
-  DEBUG_MeshBlock = 60, // 遍历 MeshBlock 相关的信息
-  DEBUG_Cell = 80,      // 遍历每个格子相关的信息
-  DEBUG_ALL = 100       // 详尽的所有信息
-};
-
-
-
-
-
-
+} // namespace fpcheck
 
 #endif // CKJ_CODE_UTILS_HPP_
