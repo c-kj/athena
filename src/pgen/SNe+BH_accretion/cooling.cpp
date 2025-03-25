@@ -9,6 +9,7 @@
 #include "my_outputs.hpp"
 #include "hst_output.hpp"
 #include "utils.hpp"
+#include "debug.hpp"
 
 
 Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): 
@@ -237,7 +238,8 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           dE = dT_cgs * rho / mu / punit->code_temperature_mu_cgs / (gamma - 1.0);
 
           //TEMP 为了 debug 看巨大加热是不是这里引起的
-          if (debug >= DEBUG_Cell) {
+          //TODO 改进；也许输出到 debug_stream 中会更好？
+          if (debug->level >= DEBUG_Cell) {
             if (dT_cgs > 1e3 or (dT_cgs/T_old_cgs > 0.1 and T_old_cgs > 0)) {
               static int report_count = 0;
               if (report_count < 1e5) {  // 别输出太多
@@ -271,7 +273,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
           }
         }
 
-
+        //TODO 把这里写得更易读懂些
         if (limiter_on) {
           // dE = - std::min(std::abs(dE), E_thermal * 0.1);  //TEMP 简陋的限制：让一个 timestep 内热能的减少量不会超过原来热能的 10%。比例越大，限制越弱。
           

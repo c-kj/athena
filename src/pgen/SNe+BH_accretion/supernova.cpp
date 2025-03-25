@@ -217,8 +217,7 @@ Supernovae::Supernovae(Mesh *pmy_mesh, ParameterInput *pin) :
 
 // 在 Supernovae 初始化时调用，从 pin 中读取各类超新星的参数，存入 supernova_paras_list
 void Supernovae::InitSupernovaParameters(ParameterInput *pin) {
-  std::string block_name, i_str;
-  block_name = "supernova";
+  std::string i_str;
   for (int i = 1; true; i++) {
     i_str = std::to_string(i);
     if (pin->DoesParameterExist("supernova", "SN_" + i_str + "_time")) { // 目前根据是否有 SN_i_time 来判断是否有这个 SN
@@ -356,7 +355,7 @@ void Supernovae::SuperNovaeSourceTerm(MeshBlock *pmb, const Real time, const Rea
             }
           }
           // 这里的 debug 信息不再那么有用，将来可以考虑删去
-          // if (debug >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
+          // if (debug->level >= DEBUG_Main && pmb->gid == 0 && SN_flag > 0){
           //   if(mesh_time <= SN_time && SN_time < mesh_time + mesh_dt && dt == mesh_dt ) {
           //     printf_and_save_to_stream(debug_stream, 
           //     "DEBUG_Mesh: SN explosion at time = %f, mesh_time = %f, dt = %f, mesh_dt = %f \n", 

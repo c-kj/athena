@@ -23,37 +23,6 @@
 #include "utils.hpp"
 
 
-// 自定义的用于将 debug 信息同时 print 和输出到文件的函数
-// 定义一个函数，它接收一个输出流、一个字符串前缀、一个格式化字符串和一些可变参数
-//! 注意！不知道这个函数如果用于 MPI 并行计算时，会不会出问题！可能会抢占式写入？？？最好是只用在本地 debug 时
-//! 对于 MeshBlock 级别以上，OpenMP or MPI 时也是危险的，同时往一个流里面写入
-void printf_and_save_to_stream(std::ostream &stream, const char *format, ...) {
-    va_list args;           // 定义一个 va_list 类型的变量，用于存储可变参数列表
-    va_start(args, format); // 使用 va_start 函数初始化 args，使其包含从 format 之后的所有参数
-
-    char buffer[256]; // 定义一个字符数组，用于存储格式化后的字符串
-
-    // 使用 vsnprintf 函数将格式化的字符串写入 buffer，vsnprintf 函数会根据 format 和 args 生成一个字符串，并确保不会超过 buffer 的大小
-    vsnprintf(buffer, sizeof(buffer), format, args);
-
-    printf("%s", buffer); // 使用 printf 函数将 buffer 输出到屏幕
-
-    // 检查 stream 是否有效
-    if (stream)
-    {
-        // 如果 stream 有效，将 output 输出到 stream
-        stream << buffer;
-    }
-    else
-    {
-        // 如果 stream 无效，输出一条错误消息
-        printf("stream is not open !!!!! \n");
-    }
-
-    // 使用 va_end 函数结束可变参数列表
-    va_end(args); 
-}
-
 
 // 用于检查并创建目录的函数
 void check_and_create_directory(const std::string& path) {

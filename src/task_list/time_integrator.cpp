@@ -37,8 +37,7 @@
 #include "task_list.hpp"
 
 //TEMP CheckCell 的头文件。为了 debug 而临时加入
-#include "../pgen/SNe+BH_accretion.hpp"
-#include "../pgen/SNe+BH_accretion/utils.hpp"
+#include "../pgen/SNe+BH_accretion/debug.hpp"
 
 //----------------------------------------------------------------------------------------
 //! TimeIntegratorTaskList constructor
@@ -2275,8 +2274,8 @@ TaskStatus TimeIntegratorTaskList::Primitives(MeshBlock *pmb, int stage) {
     // ps->r.SwapAthenaArray(ps->r1);
 
     //TEMP CheckCell after_cons2prim 为了 debug 而临时加入
-    if (debug >= DEBUG_Cell) {
-      CheckCell("after_cons2prim", pmb, pmb->pmy_mesh->time, pmb->pmy_mesh->dt,
+    if (debug->level >= DEBUG_Cell) {
+      debug->CheckCell("after_cons2prim", pmb, pmb->pmy_mesh->time, pmb->pmy_mesh->dt,
                                 ph->w, ps->r, pf->bcc,
                                 ph->u, ps->s);
     }

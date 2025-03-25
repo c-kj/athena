@@ -49,4 +49,5 @@ Real HSTManager::hst_function(MeshBlock *pmb, int iout) {
   return hst->MB_data(pmb)(iout);
 }
 
+// 为全局的 hst 指针提供默认定义，从而在其他文件中可以直接使用（当然，要先初始化）
 std::unique_ptr<HSTManager> hst;

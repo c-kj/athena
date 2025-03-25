@@ -8,6 +8,7 @@
 /*                                   静态参数                                   */
 /* -------------------------------------------------------------------------- */
 
+//TODO 把 Passive Scalar Index 改为类似自定义 hst 机制那样，用字符串做索引，更灵活，可以适应 key 不存在的情况。另外可以写一个机制在编译时保证字符串索引不会出错。
 // Passive Scalar 与其对应的 index 的对应
 //* 修改时，记得在 pgen 中更改对应的名字
 namespace PassiveScalarIndex {
@@ -37,22 +38,6 @@ struct Abundance {
 };
 
 
-
-/* -------------------------------------------------------------------------- */
-/*                      在同一个 pgen 的各个模块间共享的全局变量                     */
-/* -------------------------------------------------------------------------- */
-//* 需要用 extern 声明，并在 cpp 文件中定义
-//* 注意虽然是全局变量，但只在同一个 MPI rank 上共享
-
-extern int verbose, debug;
-
 /* -------------------------------------------------------------------------- */
 /*                                     函数                                     */
 /* -------------------------------------------------------------------------- */
-
-// 用于检查单个格点的函数，检查是否有 nan 或负数的情况。只有 debug >= DEBUG_Cell 时才应该被调用。
-// check_position 的可选值：before_source, after_source, after_cons2prim
-void CheckCell(std::string check_position, MeshBlock *pmb, const Real time, const Real dt,
-  const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
-  const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
-  AthenaArray<Real> &cons_scalar);

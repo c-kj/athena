@@ -97,7 +97,7 @@ int RefinementCondition_Gradient(MeshBlock *pmb) {
     }
   }
   // TEMP 临时注释掉 debug 机制，因为 debug 机制还没迁移到独立文件中
-  // if (debug >= DEBUG_MeshBlock) {
+  // if (debug->level >= DEBUG_MeshBlock) {
   //   printf_and_save_to_stream(debug_stream, 
   //   "DEBUG_MeshBlock: dlnp = %f, dlnrho = %f, grad_p_refine = %f, grad_rho_refine = %f, AMR_grad_p = %d, AMR_grad_rho = %d \n", 
   //   dlnp, dlnrho, grad_p_refine, grad_rho_refine, AMR_grad_p, AMR_grad_rho);
@@ -119,7 +119,7 @@ int RefinementCondition(MeshBlock *pmb) {
 
   // TEMP
   // debug 消息，放在前面，免得还没输出就 return 了
-  // if (debug >= DEBUG_Mesh && pmb->gid == 0) {
+  // if (debug->level >= DEBUG_Mesh && pmb->gid == 0) {
   //   printf_and_save_to_stream(debug_stream, "DEBUG_Mesh: RefinementCondition is called at time = %f \n", time);
   // }
 
@@ -148,7 +148,7 @@ void InitRefinementCondition(ParameterInput *pin) {
   grad_rho_refine = pin->GetOrAddReal("AMR/gradient", "grad_rho_refine", INFINITY);
   grad_rho_derefine = pin->GetOrAddReal("AMR/gradient", "grad_rho_derefine", -INFINITY);
   // TEMP
-  // if (debug >= DEBUG_Main) {
+  // if (debug->level >= DEBUG_Main) {
   //   printf_and_save_to_stream(debug_stream, "DEBUG_Main: AMR_grad_p = %d, AMR_grad_rho = %d \n", AMR_grad_p, AMR_grad_rho);
   // }
 
