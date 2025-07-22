@@ -1147,6 +1147,9 @@ void Mesh::NewTimeStep() {
   // prevent timestep from growing too fast in between 2x cycles (even if every MeshBlock
   // has new_block_dt > 2.0*dt_old)
   dt = static_cast<Real>(2.0)*dt;
+  if (dt == 0.0) {  //TEMP debug 临时解放这里的限制，让 dt == 0 时不会有这个 2 倍限制
+    dt = std::numeric_limits<Real>::max();
+  }
   // consider first MeshBlock on this MPI rank's linked list of blocks:
   dt = std::min(dt, pmb->new_block_dt_);
   dt_hyperbolic = pmb->new_block_dt_hyperbolic_;

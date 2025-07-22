@@ -74,6 +74,7 @@ Real M_BH, GM_BH, R_in, R_out, rho_sink;
 
 Real T_hot_warm, T_warm_cold;
 
+Real dfloor, pfloor; //TEMP 自己加 dfloor pfloor
 
 
 // 各个模块实现的机制的 对象/指针
@@ -597,6 +598,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   T_hot_warm = pin->GetOrAddReal("hst", "T_hot_warm", 1e5);
   T_warm_cold = pin->GetOrAddReal("hst", "T_warm_cold", 1e3);
 
+  //TEMP floors
+  // dfloor=pin->GetOrAddReal("hydro","dfloor",std::sqrt(1024*float_min));
+  // pfloor=pin->GetOrAddReal("hydro","pfloor",std::sqrt(1024*float_min));
+
 
   // 构造我自定义机制的对象
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
@@ -719,6 +724,29 @@ void MeshBlock::UserWorkInLoop() {
                               phydro->w, pscalars->r, pfield->bcc,
                               phydro->u, pscalars->s);
   }
+
+  //TEMP 尝试这样能不能避免 crash
+  // copy from strat.cpp
+  // for (int k=ks; k<=ke; k++) {
+  //   for (int j=js; j<=je; j++) {
+  //     for (int i=is; i<=ie; i++) {
+  //       Real& u_d  = phydro->u(IDN,k,j,i);
+  //       u_d = (u_d > dfloor) ?  u_d : dfloor;
+  //       if (NON_BAROTROPIC_EOS) {
+  //         Real gam = peos->GetGamma();
+  //         Real& w_p  = phydro->w(IPR,k,j,i);
+  //         Real& u_e  = phydro->u(IEN,k,j,i);
+  //         const Real& u_m1 = phydro->u(IM1,k,j,i);
+  //         const Real& u_m2 = phydro->u(IM2,k,j,i);
+  //         const Real& u_m3 = phydro->u(IM3,k,j,i);
+  //         w_p = (w_p > pfloor) ?  w_p : pfloor;
+  //         Real di = 1.0/u_d;
+  //         Real ke = 0.5*di*(SQR(u_m1) + SQR(u_m2) + SQR(u_m3));
+  //         u_e = w_p/(gam-1.0)+ke;
+  //       }
+  //     }
+  //   }
+  // }
 
   return;
 }
