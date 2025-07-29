@@ -3,8 +3,8 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-//! \file turb.cpp
-//! \brief Problem generator for turbulence driver
+//! \file SNe+BH_accretion.cpp
+//! \brief Problem generator for SNe + BH accretion
 
 // C headers
 
@@ -56,7 +56,7 @@
 #include "SNe+BH_accretion/progress_report.hpp"
 #include "SNe+BH_accretion/debug.hpp"
 
-// 本 pgen 的头文件（以后考虑合并）
+// 本 pgen 的头文件
 #include "SNe+BH_accretion.hpp"
 
 
@@ -66,7 +66,7 @@
 
 // 如果需要在 pgen 的多个模块中使用（全局变量），放到此 pgen 对应的头文件中，用 extern 声明，并在源文件中定义。
 
-//FUTURE 将这些全局变量大多数改造为类的成员变量
+//FUTURE 将这些文件级别变量大多数改造为类的成员变量
 // 声明自定义的文件级别变量，从 input file 中读取
 // 这些变量的赋值是在 Mesh::InitUserMeshData 中完成的
 
@@ -327,8 +327,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
           cons(IM1,k,j,i) = 0.0;
           cons(IM2,k,j,i) = 0.0;
           cons(IM3,k,j,i) = 0.0;
-          // 修改能量
-          if (NON_BAROTROPIC_EOS) {
+          if (NON_BAROTROPIC_EOS) { // 修改能量
             cons(IEN,k,j,i) = 0.0 + 0.0;  // 把内能（压强）清零（压强会由于 floor 而有一个小值）。动能也是 0.
           }
           if (NSCALARS > 0) {
@@ -343,6 +342,7 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
     }
   }
 }
+
 
 // 这个函数是用来计算 dt 的。dt 是一个 MeshBlock 的属性，表示该 MeshBlock 在当前 cycle 中的 dt。
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
@@ -557,6 +557,9 @@ void HSTManager::UserWorkBeforeHstOutput(MeshBlock* pmb) {
 // 函数用途：初始化 Mesh 上的全局变量（各个 MeshBlock 共享）；enroll 各种自定义函数
 // 注意：这里工作路径在运行 athena 时所在的路径中（似乎不一定是 input file 的父目录？）。而进入主循环时，工作路径会改到放 output 的路径中。
 void Mesh::InitUserMeshData(ParameterInput *pin) {
+
+  /* ------------------------ 这部分继承自 src/pgen/turb.cpp ------------------------ */
+
   if (SELF_GRAVITY_ENABLED) {
     Real four_pi_G = pin->GetReal("problem","four_pi_G");
     SetFourPiG(four_pi_G);
@@ -578,7 +581,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   }
 
 
-  // 从 input file 中读取参数，存到 pgen 文件的模块级别变量中
+  /* ------------------ 从 input file 中读取参数，存到 pgen 文件的模块级别变量中 ----------------- */
+
   Real M_BH_in_Msun = pin->GetOrAddReal("problem","M_BH", 0.0);
   M_BH = M_BH_in_Msun * punit->solar_mass_code;
   GM_BH = M_BH * punit->grav_const_code;
@@ -598,32 +602,31 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   T_warm_cold = pin->GetOrAddReal("hst", "T_warm_cold", 1e3);
 
 
-  // 构造我自定义机制的对象
+
+  /* ------------------------------- 构造我自定义机制的对象 ------------------------------ */
+
   //* 注意：在这里构造的对象，都必须是确定性的，从而保证在 restart 时 / 跨 MPI rank 的一致性。
+  //FUTURE: 把 cooling 和 supernovae 机制都改为用 unique_ptr；使用 C++14 的 make_unique
   initial_condition = std::unique_ptr<InitialCondition>(new InitialCondition(this, pin));
-
-  cooling = Cooling(this, pin);  // 初始化 cooling
-
-  supernovae = Supernovae(this, pin);  // 初始化 supernovae
-
-  progress_report = std::unique_ptr<ProgressReport>(new ProgressReport(this, pin));  // 初始化 progress_report
-
-  debug = std::unique_ptr<Debug>(new Debug(this, pin, progress_report));  // 初始化 debug 机制
-  
-  hst = std::unique_ptr<HSTManager>(new HSTManager(this, RealUserMeshBlockDataIndex::hst));  // 初始化 hst 机制
+  cooling           = Cooling(this, pin);  // 初始化 cooling
+  supernovae        = Supernovae(this, pin);  // 初始化 supernovae
+  progress_report   = std::unique_ptr<ProgressReport>(new ProgressReport(this, pin));  // 初始化 progress_report
+  debug             = std::unique_ptr<Debug>(new Debug(this, pin, progress_report));  // 初始化 debug 机制
+  hst               = std::unique_ptr<HSTManager>(new HSTManager(this, RealUserMeshBlockDataIndex::hst));  // 初始化 hst 机制
   //* 由于 hst 的 entry 要根据 debug 是否开启做判断，因此需要放在 debug 后面初始化。
 
   if (supernovae.source_term_position <= SourceTermPosition::AfterSourceTerm && cooling.source_term_position == SourceTermPosition::UserWorkInLoop) {
     std::cout << "### WARNING: Supernova 在 SourceTerm 中/结尾 注入，而 Cooling 在 UserWorkInLoop 中。这会导致注入 SN 那一步的 Cooling TimeStep 未受限制！ \n";
   }
 
+  // 自定义的 AMR 机制，目前没有像其他几个机制一样写成指针对象
   // 读取自定义的 AMR 参数
   if (adaptive) {
     SetRootLevel(root_level);
     InitRefinementCondition(pin);
   }
 
-  // Enroll 各种自定义函数
+  /* ----------------------------- Enroll 各种自定义函数 ----------------------------- */
 
   // 将自定义的源项注册到 Athena++ 中
   // 调用时机：根据 integrator 有所不同。对于 VL2，在每个时间步中调用两次，一次在开头，一次在中间；
@@ -644,6 +647,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   passive_scalar_names[PassiveScalarIndex::initial_fluid ] = "initial_fluid";
 
 
+  /* --------------------------------- 输出一些信息 --------------------------------- */
   if (Globals::my_rank == 0) {
     std::cout << "pgen 编译于: " << __DATE__ << " " << __TIME__ << '\n'; 
     // Print unit 相关信息
@@ -656,6 +660,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   return;
 }
+
 
 // 调用时机：程序启动时（包括 restart 时）
 // 函数用途：初始化每个 MeshBlock 上的局部变量（包括数组数据）
@@ -678,7 +683,6 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
       SetUserOutputVariableName(cooling_rate, "_cooling_rate");
     }
   }
-
 
   return;
 }
@@ -782,9 +786,9 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
 
 
 // 调用时机：模拟结束时
-// 函数用途：清理 MeshBlock::InitUserMeshData 分配的资源
+// 函数用途：清理 MeshBlock::InitUserMeshData 分配的资源；在模拟结束后做一些事情
 void Mesh::UserWorkAfterLoop(ParameterInput *pin) {
-  // 这个函数用于在模拟结束后做一些事情
+  // 在 debug 中表明这个函数被调用了
   if (debug->level >= DEBUG_Main) {
     debug->debug_stream << "DEBUG_Main: Mesh::UserWorkAfterLoop is called \n";
   }
