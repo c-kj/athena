@@ -1,4 +1,3 @@
-
 // Athena++ headers
 #include "../../eos/eos.hpp"
 #include "../../hydro/hydro.hpp"
@@ -11,6 +10,10 @@
 #include "utils.hpp"
 #include "debug.hpp"
 
+
+/* -------------------------------------------------------------------------- */
+/*                                  Cooling 类                                 */
+/* -------------------------------------------------------------------------- */
 
 Cooling::Cooling(Mesh *pmy_mesh, ParameterInput *pin): 
   punit(pmy_mesh->punit),   // 在初始化列表中把传入的 punit 赋值给成员变量 punit
@@ -203,6 +206,7 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
                         const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
                         AthenaArray<Real> &cons_scalar) {
 
+  auto hst_data = hst->get_proxy(pmb);
   const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
 
   // 用于从 cons 中计算 E_thermal
@@ -306,13 +310,19 @@ void Cooling::CoolingSourceTerm(MeshBlock *pmb, const Real time, const Real dt,
         // 目前储存的是 -dE/dt。若出现加热（由于 Heating Term 或者由于 floor），则可能需要重新考虑应该储存什么
 
         const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
-        auto hst_data = hst->get_proxy(pmb);
-        hst_data["total_cooling_loss"] += -dE * cell_volume * source_weight;  // 历史累计的 cooling loss
+        hst_data["total_cooling_loss"] += -dE * cell_volume * source_weight;  // 历史累计的 cooling loss。以能量减少为正。
       }
     }
   }
   return;
 }
+
+
+
+/* -------------------------------------------------------------------------- */
+/*                                CoolingModel                                */
+/* -------------------------------------------------------------------------- */
+
 
 // 工厂函数，根据输入的字符串返回对应的 CoolingModel 指针
 std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_model)
@@ -321,6 +331,8 @@ std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_mo
     return std::unique_ptr<CoolingModel>(new Draine_2011());
   } else if (cooling_model == "Draine_2011_cutoff") {
     return std::unique_ptr<CoolingModel>(new Draine_2011_cutoff());
+  } else if (cooling_model == "Draine_2011_cutoff_Koyama_Inutsuka_2002") {
+    return std::unique_ptr<CoolingModel>(new Draine_2011_cutoff_Koyama_Inutsuka_2002());
   } else if (cooling_model == "other_model") {
     return std::unique_ptr<CoolingModel>(new OtherModel());
   }
@@ -329,6 +341,28 @@ std::unique_ptr<CoolingModel> CoolingModel::Create(const std::string &cooling_mo
     throw std::invalid_argument("未定义的 CoolingModel: " + cooling_model);
   }
 }
+
+
+/* ------------------------------- 用于复用的几个纯函数 ------------------------------- */
+
+// 在 Draine_2011 的基础上，自己添加了一个指数截断
+static Real Draine_2011_cutoff_CoolingCurve(Real T_cgs) {
+  if (T_cgs <= std::pow(10.0, 7.3) ) {
+    return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(- std::pow(4.5e4/T_cgs, 1.2)); // 这里指数截断的系数值是我自己手动拟合的。主要用于近似 Draine 2011 在 1e4 附近的截断
+  } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
+    return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
+  }
+  return 0.0;  // 默认返回值
+}
+
+// Koyama & Inutsuka (2002) 低温冷却曲线。仅适用于 T < 1e4 K
+static Real Koyama_Inutsuka_2002_CoolingCurve(Real T_cgs) {
+  return 2e-26 * ( 1e-7 * std::exp(-118400/(T_cgs + 1000)) + 1.4e-2 * std::sqrt(T_cgs) * std::exp(-92/T_cgs) );
+}
+
+
+/* -------------------------- 各个 CoolingModel 的具体实现 ------------------------- */
+
 
 // Drain 2011, ISM textbook, Sec 34.1, eqn 34.2 & 34.3。
 // 用于估计 SN shock cooling 的简单幂律函数。高于 10^(7.3) K 的部分是轫致辐射主导的。
@@ -341,14 +375,18 @@ Real Draine_2011::CoolingCurve(Real T_cgs) const {
   return 0.0;  // 默认返回值
 }
 
-
+// 在 Draine_2011 的基础上，自己添加了一个指数截断
 Real Draine_2011_cutoff::CoolingCurve(Real T_cgs) const {
-  if (T_cgs <= std::pow(10.0, 7.3) ) {
-    return 1.1e-22 * std::pow(T_cgs/1e6, -0.7) * std::exp(- std::pow(4.5e4/T_cgs, 1.2)); // 这里指数截断的系数值是我自己手动拟合的。主要用于近似 Draine 2011 在 1e4 附近的截断
-  } else if ( std::pow(10.0, 7.3) < T_cgs ) {  // 目前这里对 T 的上界没有限制，暂时没出问题
-    return 2.3e-24 * std::pow(T_cgs/1e6, 0.5);
+  return Draine_2011_cutoff_CoolingCurve(T_cgs);
+}
+
+// 在 Draine_2011_cutoff 的基础上，对于低温 T < 1e4 K，采用 Koyama & Inutsuka (2002) 中的拟合曲线（也被 郭明浩 (2024) 所采用）。
+Real Draine_2011_cutoff_Koyama_Inutsuka_2002::CoolingCurve(Real T_cgs) const {
+  if (T_cgs < 1e4) {  // 低温：采用 Koyama & Inutsuka (2002) 中的拟合曲线
+    return Koyama_Inutsuka_2002_CoolingCurve(T_cgs);
+  } else {  // 对于 T >= 1e4 K，使用 Draine_2011_cutoff 的拟合冷却曲线
+    return Draine_2011_cutoff_CoolingCurve(T_cgs);
   }
-  return 0.0;  // 默认返回值
 }
 
 

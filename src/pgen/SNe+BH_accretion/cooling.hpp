@@ -48,6 +48,10 @@ struct Draine_2011_cutoff : public CoolingModel {
   Real CoolingCurve(Real T_cgs) const override;
 };
 
+struct Draine_2011_cutoff_Koyama_Inutsuka_2002 : public CoolingModel {
+  Real CoolingCurve(Real T_cgs) const override;
+};
+
 struct OtherModel : public CoolingModel {
   Real CoolingCurve(Real T_cgs) const override;
   Real Jacobian(Real T_cgs) const override;

@@ -93,7 +93,7 @@ VTUNE_CMD=""
 # VTUNE_CMD="-gtool \"vtune -collect hotspots -r vtune_result/Athena++.$SLURM_JOB_ID -trace-mpi -data-limit=200 -target-duration-type=long : 0-1 -- \" "   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
 
 ATHENA_CMD="athena -d output -i \"$athinput_file\""
-# ATHENA_CMD="$ATHENA_CMD -r \"Bondi.00001.rst\""   # 从某个 rst 文件开始继续模拟
+# ATHENA_CMD="$ATHENA_CMD -r \"output/Bondi+SN.final.rst\""   # 从某个 rst 文件开始继续模拟
 
 
 # 组装命令并执行
