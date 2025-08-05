@@ -20,7 +20,7 @@
 // 2. 添加相应的 hst 输出所需要的计算步骤 (对 hst->get_proxy(pmb) 进行操作)
 //  - 瞬时值：在 HSTManager::UserWorkBeforeHstOutput 直接赋值
 //  - 瞬时统计量：在 HSTManager::UserWorkBeforeHstOutput 中计算，赋值
-//  - 累积量：在相应的源项中进行累计
+//  - 累积量：在相应的源项中进行累计。别忘了乘以相应 stage 的 source_weight。
 
 
 // Forward declaration

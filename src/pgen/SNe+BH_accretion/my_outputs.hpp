@@ -8,6 +8,7 @@ namespace UOV {
   enum UserOutputVariableIndex {
     // test,
     cooling_rate,
+    heating_rate,
     // 其他 uov ...
     N_UOV  // uov 的个数，用于 AllocateUserOutputVariables。必须放在 enum 的最后
   };

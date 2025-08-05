@@ -74,6 +74,10 @@ Real M_BH, GM_BH, R_in, R_out, rho_sink;
 
 Real T_hot_warm, T_warm_cold;
 
+// 目前 heating 相关的机制直接放在这个 pgen 中。因为非常简单。以后如果复杂了，可以单独拎到模块中。
+Real heating_Gamma_cgs;
+bool heating_flag;  // 是否开启 heating 机制。
+
 
 
 // 各个模块实现的机制的 对象/指针
@@ -119,6 +123,12 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
              const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
              AthenaArray<Real> &cons_scalar);
 
+// heating
+void Heating(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar);
+
 
 /* -------------------------------------------------------------------------- */
 /*                                Source Terms                                */
@@ -139,6 +149,10 @@ void MySourceFunction(MeshBlock *pmb, const Real time, const Real dt,
   // 但是，第一个 stage 对 cons 的更新会进入第二个 stage 的 prim，
   if (cooling.cooling_flag && cooling.source_term_position == SourceTermPosition::InSourceTerm) {
     cooling.CoolingSourceTerm(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
+  }
+
+  if (heating_flag) {
+    Heating(pmb, time, dt, prim, prim_scalar, bcc, cons, cons_scalar);
   }
 
   // 超新星的注入 // 目前默认并不在这里注入，如果随着源项注入，可能会炸步长 / 注入比例不对，但未经测试（暂时没必要尝试这个）。
@@ -343,6 +357,41 @@ void SMBH_sink(MeshBlock *pmb, const Real time, const Real dt,
   }
 }
 
+//! 目前，heating 的实现没有和 cooling 耦合在一起，而是分别从 prim 计算的。
+// 然而，cooling source term 考虑了单个时间步内温度的变化（不论是 Townsend 还是 subcycle），因此，当启用 heating 时，对 cooling 的计算可能不那么准确。
+void Heating(MeshBlock *pmb, const Real time, const Real dt,
+             const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+             const AthenaArray<Real> &bcc, AthenaArray<Real> &cons,
+             AthenaArray<Real> &cons_scalar) {
+  auto hst_data = hst->get_proxy(pmb);
+  const Real source_weight = ckj_plugin::source_term_weight; // 在循环外把这个值存下来，避免每次循环都进行命名空间、全局变量的查找
+
+  Real mu = Abundance::mu;             
+  Units *punit = pmb->pmy_mesh->punit;
+  Real Gamma_cgs = heating_Gamma_cgs;  // 这里的 Gamma_cgs 是从 input file 中读取的，单位为 erg/s
+  Real dt_cgs = dt * punit->code_time_cgs;
+
+  //? 目前 heating 应用于所有气体。可能改为只加热 1e4 K 以下？？
+  for (int k=pmb->ks; k<=pmb->ke; ++k) {
+    for (int j=pmb->js; j<=pmb->je; ++j) {
+      for (int i=pmb->is; i<=pmb->ie; ++i) {
+        Real rho = prim(IDN,k,j,i); 
+        Real rho_cgs = rho * punit->code_density_cgs;
+        Real n_cgs = rho_cgs / (mu * Constants::hydrogen_mass_cgs);   //TEMP 应该直接用 n 吗？还是 n_H ?
+        // Real n_H_cgs = rho_cgs * X_H / (mu_H * Constants::hydrogen_mass_cgs); 
+
+        Real dE_cgs = n_cgs * Gamma_cgs * dt_cgs;
+        Real dE = dE_cgs / punit->code_energydensity_cgs;
+        cons(IEN,k,j,i) += dE;
+
+        pmb->user_out_var(UOV::heating_rate, k,j,i) = dE/dt;  // 把每个 cell 内的 heating_rate 储存到 user_out_var 中。
+        const Real cell_volume = pmb->pcoord->GetCellVolume(k,j,i);
+        hst_data["total_heating_gain"] += dE * cell_volume * source_weight;  // 历史累计的 heating gain
+      }
+    }
+  }
+}
+
 
 // 这个函数是用来计算 dt 的。dt 是一个 MeshBlock 的属性，表示该 MeshBlock 在当前 cycle 中的 dt。
 // 自定义的 dt_user。注意这个函数的返回值应该严格 > 0 ，否则虽然 Integrator 不报错，但感觉很危险…
@@ -409,6 +458,10 @@ void HSTManager::register_all_entries() {
   if (cooling.cooling_flag) {
     add_entry("total_cooling_loss");
   }
+  if (heating_flag) {
+    add_entry("total_heating_gain");
+  }
+
   if (M_BH != 0.0 and NON_BAROTROPIC_EOS) {
     add_entry("BH_gravity_work");   // SMBH 引力对流体做的功
   }
@@ -601,6 +654,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   T_hot_warm = pin->GetOrAddReal("hst", "T_hot_warm", 1e5);
   T_warm_cold = pin->GetOrAddReal("hst", "T_warm_cold", 1e3);
 
+  // heating
+  heating_Gamma_cgs = pin->GetOrAddReal("heating", "Gamma_cgs", 0.0);
+  heating_flag = (heating_Gamma_cgs != 0.0);
 
 
   /* ------------------------------- 构造我自定义机制的对象 ------------------------------ */
@@ -678,9 +734,13 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
     using namespace UOV;
     AllocateUserOutputVariables(N_UOV);  // allocate 我自定义的 output 变量（uov, user_out_var）
     //TODO 把 enum 改为使用 vector 或 map 之类的，从而根据开启什么功能来决定总共 UOV 的数目，减小输出体积。但是，从代称到编号的 map 需要在其他文件中也可见！
+    // 目前各个 UOV 的 index 是写死在 enum 里的。虽然根据开启什么功能来决定是否给这些 UOV 命名和写入值，但始终是 allocate 的。如果没有命名，则默认命名为 user_out_var<n>，<n> 是从 0 开始的整数。
     //* 为每个 user_out_var 变量设置名字。这里使用 _snake_case，额外在开头加一个 _ 以规避 yt 中名称重复导致的不便。
     if (cooling.cooling_flag) {
       SetUserOutputVariableName(cooling_rate, "_cooling_rate");
+    }
+    if (heating_flag) {
+      SetUserOutputVariableName(heating_rate, "_heating_rate");
     }
   }
 
