@@ -127,15 +127,30 @@ SupernovaParameters::SupernovaParameters(Supernovae *pSNe, ParameterInput *pin, 
 
     // 计算 SN 的爆炸时间 time_list
     {
-      Real t_start = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_start", 0.0); 
-      Real tlim = pin->GetReal("time", "tlim"); 
-      Real t_end = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_end", tlim);
+      // 从 Mesh 中拿到整个模拟的起始和截止时间。其实也可以从 pin 读取，两者应该是一样的（即便是 restart 时，因为 Mesh 也在 restart 时构造）。
+      Real start_time = pSNe->pmy_mesh->start_time;
+      Real tlim = pSNe->pmy_mesh->tlim; 
+      
+      std::string t_span_type = pin->GetOrAddString(block_name, "SN_" + i_str + "_t_span_type", "all");
+      Real t_start, t_end;
+      if (t_span_type == "all") { // 自动设置为整个模拟时间范围。如果 restart 时更改了 tlim，也会自动更新。
+        t_start = start_time;
+        t_end   = tlim;
+      } else if (t_span_type == "interval") { // 手动指定区间
+        //* 这里看似是从 pin 读取，但在 restart 时其实会先从 rst 读取，这样就会继承之前设定的值（即便是默认设定的）。也就是说，在 restart 时，只改 tlim 的话 SN 的 t_end 不会跟着改动。需要手动重设才能在 restart 之后有新的 SN event。
+        t_start = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_start", start_time); 
+        t_end   = pin->GetOrAddReal(block_name, "SN_" + i_str + "_t_end", tlim);
+      } else {
+        throw std::invalid_argument("Unknown t_span_type: " + t_span_type);
+      }
+
       Real tau_SF = pin->GetReal(block_name, "SN_" + i_str + "_tau_SF") * pSNe->punit->million_yr_code;  // 从 input file 中读取 tau_SF，单位是 Myr，转换为 code unit
       //TODO 这里目前从 pin 读取的参数，并重新进行换算。以后考虑改为从 initial_condition 指针中读取。但这需要在顶层把指针收集起来。
       Real n_init_cgs = pin->GetReal("initial_condition", "n_init_cgs");
       Real rho_init_code = rho_from_n_cgs(Abundance::mu, n_init_cgs) / pSNe->punit->code_density_cgs;
       
       // 计算 SN 的爆炸速率。以下都是在 code unit 下计算
+      //FUTURE 这里的 150 Msun 可以改为在 input file 中读取？
       Real SF_rate_density = rho_init_code / tau_SF;  // 恒星形成率密度，量纲：质量密度/时间
       Real SN_rate_density = SF_rate_density / (150. * pSNe->punit->solar_mass_code);  // SN 爆炸率密度，量纲：数密度/时间。每 150 个 Msun 形成，对应一个 SN 爆炸，这个数字来自 Stellar IMF 的积分
       Real SN_rate = SN_rate_density * allow_region_volume;  // SN 爆炸率，量纲：个数/时间

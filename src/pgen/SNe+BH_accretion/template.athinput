@@ -166,6 +166,7 @@ SN_1_radius = 0.01                           # region 的半径。Unit: code uni
 # SN_1_allow_region_radius =                   # 允许 SN 爆发的球形区域半径。当 allow_region_shape = ball 时必须指定；其他情况不被使用。 Unit: code unit
 # SN_1_generate_region_radius =                # 随机生成空间点的 box 半宽。默认为 allow_region_radius. Unit: code unit
 # SN_1_random_seed = 1234                      # 随机数种子，默认为 1234。
+# SN_1_t_span_type = all                       # SN 爆发的时间范围的类型。可选值：all, interval。默认为 all。注意：如果选择 interval，restart 时 t_end 会从 rst 文件中读取上一次的值，所以需要手动重设 t_end 才能在 restart 之后有新的 SN event。
 # SN_1_t_start = 0.0                           # SN 爆发的开始时间，默认为 0.0。Unit: code unit
 # SN_1_t_end =                                 # SN 爆发的结束时间，默认为 <time/> block 的参数 tlim。Unit: code unit
 
