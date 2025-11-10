@@ -176,6 +176,7 @@ M_BH =                                       # 用于在 M_BH 未设定 or 为 0
 
 
 <cooling>
+cooling_flag = true                          # 控制 cooling 的开关。默认为 false。
 source_term_position = InSourceTerm          # InSourceTerm, AfterSourceTerm, UserWorkInLoop
 use_prim_in_cooling  = true                  # true: use prim
 

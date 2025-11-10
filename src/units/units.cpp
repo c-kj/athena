@@ -61,7 +61,7 @@ Units::Units(ParameterInput *pin) :
     code_mass_cgs_ = Constants::hydrogen_mass_cgs*CUBE(code_length_cgs_);
     code_time_cgs_ = Constants::million_yr_cgs;
   } else if (unit_system.compare("Bondi") == 0) {
-    //TODO 自定义一个根据 Bondi scale 来缩放的单位制？
+    // 自定义一个根据 Bondi scale 来缩放的单位制: [length] = R_Bondi, [time] = R_Bondi / v_ff, [density] = m_H/cm**3
     //* CHANGEME 如果更改，记得把 yt 后处理也改掉
     Real M_BH;
     //* 如果 M_BH 没有设置或者为 0，长度单位为 0 就没意义了。这时就改用 <units> 中的 M_BH 替代（仅用于设定尺度，而不产生引力）
@@ -76,7 +76,15 @@ Units::Units(ParameterInput *pin) :
     //TODO 抽象成一个 struct 或函数，和初值那边通用。与 yt 同步
     Real gamma = pin->GetReal("hydro", "gamma");
     std::string cooling_model = pin->GetOrAddString("cooling", "cooling_model", "none");
-    bool cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
+    
+    //FUTURE 为了后向兼容，目前如果 cooling_flag 不存在，则根据 cooling_model 来判断；等以后把所有 input file 都改过来了，可以把这里改为 cooling_flag 不存在时默认为 false.
+    bool cooling_flag;
+    if (pin->DoesParameterExist("cooling", "cooling_flag")) {  // 新的行为：直接读 input file 中的 cooling_flag
+      cooling_flag = pin->GetBoolean("cooling", "cooling_flag");
+    } else {  // 旧版行为：根据 cooling_model 是否为 none 来判断
+      cooling_flag = cooling_model != "none";  // 如果没有指定 cooling_model 或压根没有 cooling 这个 block，则 cooling_flag 为 false
+    }
+
     Real polytropic_index = cooling_flag ? 1.0 : gamma;  //* 根据是否开启 cooling 选择 1 或者 gamma。这里不从 input file 的 <initial_condition> block 读取，因为那个是用于近似初值的。
     Real c_s_2_cgs = polytropic_index * Constants::k_boltzmann_cgs * T_init_cgs / Constants::hydrogen_mass_cgs / Abundance::mu;
 
