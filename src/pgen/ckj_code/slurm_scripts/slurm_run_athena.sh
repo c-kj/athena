@@ -3,8 +3,8 @@
 #SBATCH -o log/Athena++.%j.out       # 标准输出文件
 #SBATCH --qos=low                    # 质量服务等级
 #SBATCH --nodes=1                    # 分配的节点数
-#SBATCH --ntasks-per-node=64          # 每个节点的任务数
-#SBATCH --ntasks=64                  # 总任务数
+#SBATCH --ntasks-per-node=64         # 每个节点的任务数
+##SBATCH --ntasks=64                 # 总任务数。可以根据节点数和每个节点的任务数自动得到
 
 # 临时启用的选项
 ##SBATCH --partition=C064M1024G        # 设置分区
@@ -14,6 +14,12 @@
 ##SBATCH --partition=C064M1024G        # 设置分区
 ##SBATCH --nodelist=node1,node2,node3  # 指定节点
 ##SBATCH --exclude=node4,node5         # 排除节点
+# 是否在模拟结束后运行后处理（true/false）
+ENABLE_POST_PROCESSING=true
+# ENABLE_POST_PROCESSING=false  # 取消注释这行来禁用后处理
+
+# 后处理日志文件路径
+POST_PROCESSING_LOG="log/post_processing.${SLURM_JOB_ID}.out"
 
 
 # 输出一些信息
@@ -45,9 +51,6 @@ echo  # 输出一个空行
 # 重置 SECONDS 变量，用于计时
 SECONDS=0
 
-# 获取脚本开始时间
-start_time=$(date +%s)
-
 
 # 检查是否只有一个 *.athinput 文件
 athinput_files=( *.athinput )   # 使用 globbing 找到所有匹配 *.athinput 的文件，并将它们放入一个数组中
@@ -76,7 +79,7 @@ export SLURM_MPI_TYPE=pmi2 # 等价于 srun 的时候加入参数 --mpi=pmi2。�
 srun hostname -s | sort -n > slurm.hosts
 
 
-
+# 这里假定 athena 可以在 PATH 中找到。目前的做法是在 PATH 中的某处创建一个指向 athena 的符号链接
 # 保存一些信息
 # athena -d output -i test_cooling.athinput time/tlim=0
 mkdir -p info                                              # 创建 info 路径用于存放各种信息
@@ -85,6 +88,7 @@ mpirun -n 1 athena -d output -i "$athinput_file" -m "$SLURM_NTASKS" > info/MeshB
 mv mesh_structure.dat info/                                # 保存网格结构信息
 
 
+# mpirun 相关的命令
 MPI_CMD="mpirun -n \"$SLURM_NTASKS\" -machinefile slurm.hosts"  #FUTURE 可以尝试用 srun。之前的尝试，似乎不能跨节点？
 
 # VTune 的命令。
@@ -93,7 +97,7 @@ VTUNE_CMD=""
 # VTUNE_CMD="-gtool \"vtune -collect hotspots -r vtune_result/Athena++.$SLURM_JOB_ID -trace-mpi -data-limit=200 -target-duration-type=long : 0-1 -- \" "   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
 
 ATHENA_CMD="athena -d output -i \"$athinput_file\""
-# ATHENA_CMD="$ATHENA_CMD -r \"output/Bondi+SN.final.rst\""   # 从某个 rst 文件开始继续模拟
+# ATHENA_CMD="$ATHENA_CMD -r \"output/Bondi+SN.00005.rst\""   # 从某个 rst 文件开始继续模拟
 
 
 # 组装命令并执行
@@ -108,22 +112,26 @@ echo "当前时间: $(date)"
 echo "当前脚本耗时: $SECONDS 秒"
 
 
+# ---------------------------------------------------------------------------- #
+#                                     后处理                                    #
+# ---------------------------------------------------------------------------- #
 
 # 运行完之后，直接做后处理
-#TODO 可以考虑调用 post_processing.sh，但要考虑到 SLURM 环境变量、MPI_CMD 等的传递问题
-
-VTUNE_CMD=""
-# VTUNE_CMD="vtune -collect hotspots -knob sampling-mode=sw -r vtune_result/post_processing.$SLURM_JOB_ID -trace-mpi"   # 注释掉这一行，即可关闭 vtune。# 其他可选的选项： -duration 60
-
-# PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/single_SN.py"
-PYTHON_SCRIPT="$HOME/Codes/athena_post_processing/post_processing/scripts/Bondi+random_SN.py"
-PYTHON_CMD="python \"$PYTHON_SCRIPT\""
-
-# 组装命令并执行
-echo "[Running post-processing script]: $PYTHON_SCRIPT"
-Post_Processing_COMMAND="$MPI_CMD $VTUNE_CMD $PYTHON_CMD"
-echo "[Running command]: $Post_Processing_COMMAND"
-eval "$Post_Processing_COMMAND"
+if [[ "$ENABLE_POST_PROCESSING" == "true" ]]; then
+    echo "Athena++ 运行完毕，开始后处理..."
+    
+    # 确保log目录存在
+    mkdir -p log
+    
+    echo "后处理日志将输出到: $POST_PROCESSING_LOG"
+    
+    # 调用后处理脚本并重定向日志（2>&1 将stderr也重定向到同一文件）
+    bash "$POST_PROCESSING_SCRIPT" > "$POST_PROCESSING_LOG" 2>&1
+    
+    echo "后处理完成，详细日志见: $POST_PROCESSING_LOG"
+else
+    echo "Athena++ 运行完毕，跳过后处理（ENABLE_POST_PROCESSING=false）"
+fi
 
 # # srun --jobid=1948647 -N 24 -n 256  athena -d output -i Bondi+SAMR.athinput -r output/Bondi.00000.rst
 

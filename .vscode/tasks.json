@@ -35,7 +35,7 @@
             "args": [],
             "group": {
                 "kind": "build",
-                "isDefault": true,
+                // "isDefault": true
             },
             "presentation": {
                 "reveal": "always"
